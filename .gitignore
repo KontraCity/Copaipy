@@ -1,5 +1,9 @@
+# Visual Studio files
+.vs/
+
 # Qt Creator files
 CMakeLists.txt.user
 
 # Build directories
 build/
+out/
