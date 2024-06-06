@@ -4,6 +4,7 @@
 // Custom modules
 #include "common/utility.hpp"
 #include "common/config.hpp"
+#include "common/sensors.hpp"
 using namespace kc;
 
 struct ParseResult
@@ -173,14 +174,17 @@ int main(int argc, char** argv)
     spdlog::logger logger = Utility::CreateLogger("main");
     try
     {
-        logger.info("HTTP server port: {}", config->httpPort());
-        logger.info("Capture time reserve: {} ms", config->timeReserve());
-        logger.info("External I2C port: \"{}\"", config->externalPort());
-        logger.info("Internal I2C port: \"{}\"", config->internalPort());
-        logger.info("System location latitude: {}'", config->latitude());
-        logger.info("System location longitude: {}'", config->longitude());
-        logger.info("Target sunrise angle: {}'", config->sunriseAngle());
-        logger.info("Target sunset angle: {}'", config->sunsetAngle());
+        Sensors::Measurement measurement = Sensors::Measure(config, Sensors::Location::External);
+        logger.info("External AHT20 temperature: {}", measurement.aht20.temperature);
+        logger.info("External AHT20 humidity: {}", measurement.aht20.humidity);
+        logger.info("External BMP280 temperature: {}", measurement.bmp280.temperature);
+        logger.info("External BMP280 pressure: {}", measurement.bmp280.pressure);
+
+        measurement = Sensors::Measure(config, Sensors::Location::Internal);
+        logger.info("Internal AHT20 temperature: {}", measurement.aht20.temperature);
+        logger.info("Internal AHT20 humidity: {}", measurement.aht20.humidity);
+        logger.info("Internal BMP280 temperature: {}", measurement.bmp280.temperature);
+        logger.info("Internal BMP280 pressure: {}", measurement.bmp280.pressure);
     }
     catch (const std::exception& error)
     {
