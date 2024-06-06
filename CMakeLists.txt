@@ -4,12 +4,20 @@ project(Copaipy)
 
 ## --- Compiler configuration --- ##
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
 include_directories("include/")
 
 ## --- Packages configuration --- ##
 find_package(fmt CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 ## --- Executable configuration --- ##
-add_executable(Copaipy "source/main.cpp")
-target_link_libraries(Copaipy fmt::fmt)
+add_executable(Copaipy "source/main.cpp"
+    # Common modules
+    "source/common/config.cpp"
+    "source/common/utility.cpp"
+)
+target_link_libraries(Copaipy PRIVATE
+    fmt::fmt
+    spdlog::spdlog
+)
