@@ -4,7 +4,7 @@
 // Custom modules
 #include "common/utility.hpp"
 #include "common/config.hpp"
-#include "common/sensors.hpp"
+#include "display/ui.hpp"
 using namespace kc;
 
 struct ParseResult
@@ -174,17 +174,20 @@ int main(int argc, char** argv)
     spdlog::logger logger = Utility::CreateLogger("main");
     try
     {
-        Sensors::Measurement measurement = Sensors::Measure(config, Sensors::Location::External);
-        logger.info("External AHT20 temperature: {}", measurement.aht20.temperature);
-        logger.info("External AHT20 humidity: {}", measurement.aht20.humidity);
-        logger.info("External BMP280 temperature: {}", measurement.bmp280.temperature);
-        logger.info("External BMP280 pressure: {}", measurement.bmp280.pressure);
+        Display::Ui ui(config);
+        while (true)
+        {
+            std::string input;
+            std::cout << ">";
+            std::getline(std::cin, input);
 
-        measurement = Sensors::Measure(config, Sensors::Location::Internal);
-        logger.info("Internal AHT20 temperature: {}", measurement.aht20.temperature);
-        logger.info("Internal AHT20 humidity: {}", measurement.aht20.humidity);
-        logger.info("Internal BMP280 temperature: {}", measurement.bmp280.temperature);
-        logger.info("Internal BMP280 pressure: {}", measurement.bmp280.pressure);
+            if (input == "on")
+                ui.start();
+            else if (input == "off")
+                ui.stop();
+            else
+                ui.showMessage({ input, {} });
+        }
     }
     catch (const std::exception& error)
     {

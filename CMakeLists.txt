@@ -18,6 +18,10 @@ add_executable(Copaipy "source/main.cpp"
     "source/common/i2c.cpp"
     "source/common/sensors.cpp"
     "source/common/utility.cpp"
+
+    # Display modules
+    "source/display/master.cpp"
+    "source/display/ui.cpp"
 )
 target_link_libraries(Copaipy PRIVATE
     fmt::fmt
