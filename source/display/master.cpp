@@ -65,14 +65,14 @@ void Display::Master::initCustomCharacters()
     sendByte(0b10001);
     sendByte(0b00000);
 
-    sendByte(Instructions::SetAddress | static_cast<uint8_t>(CustomCharacter::AngryFace) << 3, true);
+    sendByte(Instructions::SetAddress | static_cast<uint8_t>(CustomCharacter::UndefinedDot) << 3, true);
     sendByte(0b00000);
-    sendByte(0b10001);
+    sendByte(0b00000);
     sendByte(0b01010);
+    sendByte(0b00100);
     sendByte(0b01010);
     sendByte(0b00000);
-    sendByte(0b01110);
-    sendByte(0b10001);
+    sendByte(0b00000);
     sendByte(0b00000);
 
     sendByte(Instructions::SetAddress | static_cast<uint8_t>(CustomCharacter::CheckMark) << 3, true);

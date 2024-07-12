@@ -51,7 +51,7 @@ namespace Display
         {
             HappyFace = 1,
             SadFace,
-            AngryFace,
+			UndefinedDot,
             CheckMark,
             Cross,
             UpArrow,

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <cmath>
 #include <mutex>
 #include <condition_variable>
 
@@ -35,9 +36,15 @@ namespace Display
 
         struct Message
         {
+            struct Submessage
+            {
+                std::string string;
+                double delay = 3.0;
+                uint32_t blinks = 0;
+            };
+
             std::string header;
-            std::vector<std::string> submessages;
-            uint32_t delayInSeconds = 3;
+            std::vector<Submessage> submessages;
         };
 
     private:
@@ -56,6 +63,7 @@ namespace Display
     private:
         Config::Pointer m_config;
         std::deque<Message> m_queue;
+        pt::ptime m_eventTimestamp;
 
         std::mutex m_mutex;
         std::mutex m_updateMutex;
@@ -67,6 +75,10 @@ namespace Display
         ThreadStatus m_messageThreadStatus;
 
     private:
+        /// @brief Update duration to event timestamp on the display
+        /// @param now Current time
+        void updateEventTimestampDuration(pt::ptime now);
+
         /// @brief Update thread implementation
         void updateFunction();
 
@@ -80,15 +92,23 @@ namespace Display
 
         ~Ui();
 
-        /// @brief Turn on the display and start display UI
-        void start();
+        /// @brief Check if display is enabled
+        /// @return True if display is enabled
+        bool enabled();
 
-        /// @brief Stop display UI and turn off the display
-        void stop();
+        /// @brief Enable display
+        void enable();
+
+        /// @brief Disable display
+        void disable();
 
         /// @brief Show message on the display
         /// @param message The message to show
         void showMessage(const Message& message);
+
+        /// @brief Update event timestamp
+        /// @param timestamp The timestamp to update to
+        void updateEventTimestamp(pt::ptime timestamp);
     };
 }
 

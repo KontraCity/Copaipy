@@ -4,7 +4,7 @@
 // Custom modules
 #include "common/utility.hpp"
 #include "common/config.hpp"
-#include "display/ui.hpp"
+#include "common/http_server.hpp"
 using namespace kc;
 
 struct ParseResult
@@ -174,20 +174,11 @@ int main(int argc, char** argv)
     spdlog::logger logger = Utility::CreateLogger("main");
     try
     {
-        Display::Ui ui(config);
-        while (true)
-        {
-            std::string input;
-            std::cout << ">";
-            std::getline(std::cin, input);
+        Display::Ui::Pointer displayUi = std::make_shared<Display::Ui>(config);
+        displayUi->enable();
 
-            if (input == "on")
-                ui.start();
-            else if (input == "off")
-                ui.stop();
-            else
-                ui.showMessage({ input, {} });
-        }
+        HttpServer server(config, displayUi);
+        server.start();
     }
     catch (const std::exception& error)
     {
