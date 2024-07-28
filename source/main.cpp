@@ -2,6 +2,7 @@
 #include <filesystem>
 
 // Custom modules
+#include "common/astronomy.hpp"
 #include "common/utility.hpp"
 #include "common/config.hpp"
 #include "common/http_server.hpp"
@@ -166,19 +167,31 @@ int main(int argc, char** argv)
     if (!config)
         return 1;
 
+    /*
     fmt::print(
         "Welcome to Copaipy\n"
         "GitHub repository: https://github.com/KontraCity/Copaipy\n"
     );
+    */
 
     spdlog::logger logger = Utility::CreateLogger("main");
     try
     {
+        dt::date date = dt::day_clock::local_day();
+        pt::ptime sunrise = Astronomy::CalculateSunrise(config, date);
+        pt::ptime sunset = Astronomy::CalculateSunset(config, date);
+
+        fmt::print("Date: {:02d}.{:02d}.{:04d}\n", date.day().as_number(), date.month().as_number(), static_cast<int>(date.year()));
+        fmt::print("Sunrise: {:02d}:{:02d} (angle: {:.2f} degrees)\n", sunrise.time_of_day().hours(), sunrise.time_of_day().minutes(), config->sunriseAngle());
+        fmt::print("Sunset: {:02d}:{:02d} (angle: {:.2f} degrees)\n", sunset.time_of_day().hours(), sunset.time_of_day().minutes(), config->sunsetAngle());
+
+        /*
         Display::Ui::Pointer displayUi = std::make_shared<Display::Ui>(config);
         displayUi->enable();
 
         HttpServer server(config, displayUi);
         server.start();
+        */
     }
     catch (const std::exception& error)
     {

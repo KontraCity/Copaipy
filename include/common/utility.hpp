@@ -12,7 +12,14 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+// Library Boost.Date_Time
+#include <boost/date_time.hpp>
+
 namespace kc {
+
+/* Namespace aliases and imports */
+namespace dt = boost::gregorian;
+namespace pt = boost::posix_time;
 
 namespace Utility
 {
@@ -45,6 +52,10 @@ namespace Utility
     /// @param max Maximum range bound
     /// @return Limited value
     double Limit(double value, double min, double max);
+
+    /// @brief Get local timezone offset in hours
+    /// @return Local timezone offset in hours
+    int GetTimezoneOffset();
 }
 
 } // namespace kc

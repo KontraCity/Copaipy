@@ -45,4 +45,11 @@ double Utility::Limit(double value, double min, double max)
     return value;
 }
 
+int Utility::GetTimezoneOffset()
+{
+    pt::ptime localTime = pt::second_clock::local_time();
+    pt::ptime universalTime = pt::second_clock::universal_time();
+    return static_cast<int>(std::round((localTime - universalTime).total_seconds() / 3600.0));
+}
+
 } // namespace kc

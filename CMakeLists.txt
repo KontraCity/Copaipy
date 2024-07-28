@@ -14,6 +14,7 @@ find_package(spdlog CONFIG REQUIRED)
 ## --- Executable configuration --- ##
 add_executable(Copaipy "source/main.cpp"
     # Common modules
+    "source/common/astronomy.cpp"
     "source/common/config.cpp"
     "source/common/http_server.cpp"
     "source/common/i2c.cpp"
