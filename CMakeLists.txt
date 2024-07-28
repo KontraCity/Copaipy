@@ -27,5 +27,9 @@ add_executable(Copaipy "source/main.cpp"
 target_link_libraries(Copaipy PRIVATE
     fmt::fmt
     spdlog::spdlog
-    "wiringPi"
 )
+
+## --- Raspberry Pi linking configuration --- ##
+if (UNIX)
+    target_link_libraries(Copaipy PRIVATE "wiringPi")
+endif()

@@ -62,6 +62,7 @@ static Sensors::Bmp280Measurement MeasureBmp280(I2C::Device& device)
 
 Sensors::Measurement Sensors::Measure(Config::Pointer config, Location location)
 {
+#ifdef __unix__
     static std::mutex mutex;
     std::lock_guard lock(mutex);
 
@@ -93,6 +94,9 @@ Sensors::Measurement Sensors::Measure(Config::Pointer config, Location location)
         case Location::Internal:
             return { MeasureAht20(internalAht20), MeasureBmp280(internalBmp280) };
     }
+#else
+    return { { 0.0, 0.0 }, { 0.0, 0.0 } };
+#endif
 }
 
 } // namespace kc

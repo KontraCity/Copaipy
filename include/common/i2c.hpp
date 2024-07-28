@@ -5,12 +5,14 @@
 #include <vector>
 #include <stdexcept>
 
-// UNIX modules
-#include <unistd.h>
-#include <errno.h>
+#ifdef __unix__
+    // UNIX modules
+    #include <unistd.h>
+    #include <errno.h>
 
-// Library WiringPi
-#include <wiringPiI2C.h>
+    // Library WiringPi
+    #include <wiringPiI2C.h>
+#endif
 
 // Library {fmt}
 #include <fmt/format.h>

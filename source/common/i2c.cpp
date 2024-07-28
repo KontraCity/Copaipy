@@ -6,6 +6,7 @@ I2C::Device::Device(const std::string& port, uint8_t address)
     : m_port(port)
     , m_address(address)
 {
+#ifdef __unix__
     m_fd = wiringPiI2CSetupInterface(("/dev/" + m_port).c_str(), m_address);
     if (m_fd == -1)
     {
@@ -14,15 +15,19 @@ I2C::Device::Device(const std::string& port, uint8_t address)
             m_port, m_address, errno
         ));
     }
+#endif
 }
 
 I2C::Device::~Device()
 {
+#ifdef __unix__
     close(m_fd);
+#endif
 }
 
 void I2C::Device::send(const std::vector<uint8_t>& data)
 {
+#ifdef __unix__
     int bytesSent = write(m_fd, data.data(), data.size());
     if (bytesSent == -1)
     {
@@ -31,11 +36,13 @@ void I2C::Device::send(const std::vector<uint8_t>& data)
             m_port, m_address, errno
         ));
     }
+#endif
 }
 
 std::vector<uint8_t> I2C::Device::receive(size_t length)
 {
     std::vector<uint8_t> buffer(length);
+#ifdef __unix__
     int bytesReceived = read(m_fd, buffer.data(), buffer.size());
     if (bytesReceived == -1)
     {
@@ -44,6 +51,7 @@ std::vector<uint8_t> I2C::Device::receive(size_t length)
             m_port, m_address, errno
         ));
     }
+#endif
     return buffer;
 }
 
