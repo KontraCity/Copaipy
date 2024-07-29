@@ -19,6 +19,7 @@ add_executable(Copaipy "source/main.cpp"
     "source/common/http_server.cpp"
     "source/common/i2c.cpp"
     "source/common/sensors.cpp"
+    "source/common/stopwatch.cpp"
     "source/common/utility.cpp"
 
     # Display modules

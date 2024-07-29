@@ -3,6 +3,7 @@
 
 // Custom modules
 #include "common/astronomy.hpp"
+#include "common/stopwatch.hpp"
 #include "common/utility.hpp"
 #include "common/config.hpp"
 #include "common/http_server.hpp"
@@ -177,13 +178,16 @@ int main(int argc, char** argv)
     spdlog::logger logger = Utility::CreateLogger("main");
     try
     {
+        Stopwatch stopwatch;
         dt::date date = dt::day_clock::local_day();
         pt::ptime sunrise = Astronomy::CalculateSunrise(config, date);
         pt::ptime sunset = Astronomy::CalculateSunset(config, date);
+        uint64_t elapsedMs = stopwatch.elapsed<Stopwatch::Milliseconds>();
 
         fmt::print("Date: {:02d}.{:02d}.{:04d}\n", date.day().as_number(), date.month().as_number(), static_cast<int>(date.year()));
         fmt::print("Sunrise: {:02d}:{:02d} (angle: {:.2f} degrees)\n", sunrise.time_of_day().hours(), sunrise.time_of_day().minutes(), config->sunriseAngle());
         fmt::print("Sunset: {:02d}:{:02d} (angle: {:.2f} degrees)\n", sunset.time_of_day().hours(), sunset.time_of_day().minutes(), config->sunsetAngle());
+        fmt::print("Calculated in {:.2f} seconds", elapsedMs / 1000.0);
 
         /*
         Display::Ui::Pointer displayUi = std::make_shared<Display::Ui>(config);
