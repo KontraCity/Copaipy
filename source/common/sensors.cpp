@@ -60,16 +60,16 @@ static Sensors::Bmp280Measurement MeasureBmp280(I2C::Device& device)
     return { Utility::Round(fineTemperature / 5120.0, 2), Utility::Round(pressure / 100.0, 2) };
 }
 
-Sensors::Measurement Sensors::Measure(Config::Pointer config, Location location)
+Sensors::Measurement Sensors::Measure(Location location)
 {
 #ifdef __unix__
     static std::mutex mutex;
     std::lock_guard lock(mutex);
 
-    static I2C::Device externalAht20(config->externalPort(), 0x38);
-    static I2C::Device externalBmp280(config->externalPort(), 0x77);
-    static I2C::Device internalAht20(config->internalPort(), 0x38);
-    static I2C::Device internalBmp280(config->internalPort(), 0x77);
+    static I2C::Device externalAht20(Config::Instance->externalPort(), 0x38);
+    static I2C::Device externalBmp280(Config::Instance->externalPort(), 0x77);
+    static I2C::Device internalAht20(Config::Instance->internalPort(), 0x38);
+    static I2C::Device internalBmp280(Config::Instance->internalPort(), 0x77);
     static bool initialized = false;
     if (!initialized)
     {

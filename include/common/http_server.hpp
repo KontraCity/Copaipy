@@ -19,6 +19,7 @@
 #include <fmt/format.h>
 
 // Custom modules
+#include "capture/master.hpp"
 #include "common/config.hpp"
 #include "common/sensors.hpp"
 #include "common/utility.hpp"
@@ -63,8 +64,8 @@ private:
     private:
         Logger m_logger;
         LogMessageFunction m_logMessage;
-        Config::Pointer m_config;
         Display::Ui::Pointer m_displayUi;
+        Capture::Master::Pointer m_captureMaster;
         asio::ip::tcp::socket m_socket;
         beast::flat_buffer m_buffer;
         beast::http::request<beast::http::dynamic_body> m_request;
@@ -91,6 +92,14 @@ private:
         /// @param indentation Response indentation
         void postDisplay(int indentation);
 
+        /// @brief Generate "/api/master" resource GET response
+        /// @param indentation Response indentation
+        void getMaster(int indentation);
+
+        /// @brief Generate "/api/master" resource POST response
+        /// @param indentation Response indentation
+        void postMaster(int indentation);
+
     private:
         /// @brief Produce HTTP request response
         void produceResponse();
@@ -101,10 +110,10 @@ private:
     public:
         /// @brief Initialize connection
         /// @param logger HTTP server logger
-        /// @param config Initialized config
         /// @param displayUi Initialized display UI
+        /// @param captureMaster Initialized capture master
         /// @param socket Connection socket
-        Connection(Logger logger, Config::Pointer config, Display::Ui::Pointer displayUi, asio::ip::tcp::socket& socket);
+        Connection(Logger logger, Display::Ui::Pointer displayUi, Capture::Master::Pointer captureMaster, asio::ip::tcp::socket& socket);
 
         /// @brief Handle HTTP request
         void handleRequest();
@@ -112,8 +121,8 @@ private:
 
 private:
     Logger m_logger;
-    Config::Pointer m_config;
     Display::Ui::Pointer m_displayUi;
+    Capture::Master::Pointer m_captureMaster;
     boost::asio::io_context m_context;
     asio::ip::tcp::acceptor m_acceptor;
     asio::ip::tcp::socket m_socket;
@@ -123,9 +132,9 @@ private:
 
 public:
     /// @brief Initialize HTTP server
-    /// @param config Initialized config
     /// @param displayUi Initialized display UI
-    HttpServer(Config::Pointer config, Display::Ui::Pointer displayUi);
+    /// @param captureMaster Initialized capture master
+    HttpServer(Display::Ui::Pointer displayUi, Capture::Master::Pointer captureMaster);
 
     /// @brief Start listening for connections
     void start();

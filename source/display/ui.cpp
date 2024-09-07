@@ -49,7 +49,7 @@ void Display::Ui::updateFunction()
 
             try
             {
-                Sensors::Measurement externalMeasurement = Sensors::Measure(m_config, Sensors::Location::External);
+                Sensors::Measurement externalMeasurement = Sensors::Measure(Sensors::Location::External);
                 externalMeasurement.aht20.humidity = Utility::Limit(externalMeasurement.aht20.humidity, 0, 99.9);
                 print(0, 0, fmt::format(
                     "{: >5.1f}|{: >4.1f}|",
@@ -57,7 +57,7 @@ void Display::Ui::updateFunction()
                     externalMeasurement.aht20.humidity
                 ));
 
-                Sensors::Measurement internalMeasurement = Sensors::Measure(m_config, Sensors::Location::Internal);
+                Sensors::Measurement internalMeasurement = Sensors::Measure(Sensors::Location::Internal);
                 internalMeasurement.aht20.humidity = Utility::Limit(internalMeasurement.aht20.humidity, 0, 99.9);
                 print(1, 0, fmt::format(
                     "{: >5.1f}|{: >4.1f}|",
@@ -177,9 +177,8 @@ void Display::Ui::messageFunction()
     }
 }
 
-Display::Ui::Ui(Config::Pointer config)
-    : Master(config->internalPort(), false)
-    , m_config(config)
+Display::Ui::Ui()
+    : Master(Config::Instance->internalPort(), false)
     , m_updateThreadStatus(ThreadStatus::Idle)
     , m_messageThreadStatus(ThreadStatus::Idle)
 {
@@ -212,12 +211,12 @@ void Display::Ui::enable()
     {
         configure(true, false, false);
         showMessage({ fmt::format("{:^16}", "[Startup]"), {
-            { fmt::format("HTTP port:{:>6}", m_config->httpPort()), 2.0 },
-            { fmt::format("Time res.:{:>5.2f}s", m_config->timeReserve() / 1000.0), 2.0 },
-            { fmt::format("Latitude:{:>6.1f}\337", m_config->latitude()), 2.0 },
-            { fmt::format("Longitude:{:>5.1f}\337", m_config->longitude()), 2.0 },
-            { fmt::format("Sunrise:{:>7.3f}\337", m_config->sunriseAngle()), 2.0 },
-            { fmt::format("Sunset:{:>8.3f}\337", m_config->sunsetAngle()), 2.0 }
+            { fmt::format("HTTP port:{:>6}", Config::Instance->httpPort()), 2.0 },
+            { fmt::format("Time res.:{:>5.2f}s", Config::Instance->timeReserve() / 1000.0), 2.0 },
+            { fmt::format("Latitude:{:>6.1f}\337", Config::Instance->latitude()), 2.0 },
+            { fmt::format("Longitude:{:>5.1f}\337", Config::Instance->longitude()), 2.0 },
+            { fmt::format("Sunrise:{:>7.3f}\337", Config::Instance->sunriseAngle()), 2.0 },
+            { fmt::format("Sunset:{:>8.3f}\337", Config::Instance->sunsetAngle()), 2.0 }
         }});
         startupDisplayed = true;
         Utility::Sleep(0.1);

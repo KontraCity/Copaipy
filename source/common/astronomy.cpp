@@ -154,32 +154,31 @@ static double CalculateSunEventHourAngle(double latitude, double solarDeclinatio
 }
 
 /// @brief Calculate sun event timestamp for a given date
-/// @param config Initialized config
 /// @param date Date to calculate event time for
 /// @param angle Angle of sunset/sunrise
 /// @param sunrise The Sun event is sunrise? (Sunset if false)
 /// @return Sun event timestamp
-static pt::ptime CalculateSunEventTimestamp(Config::Pointer config, dt::date date, double angle, bool sunrise)
+static pt::ptime CalculateSunEventTimestamp(dt::date date, double angle, bool sunrise)
 {
     double julianDate = GregorianToJulian(date);
     double julianCenturies = CalculateJulianCenturies(julianDate);
-    double sunriseHourAngle = CalculateSunEventHourAngle(config->latitude(), CalculateSolarDeclination(julianCenturies), angle, sunrise);
-    double timeMinutes = 720 - 4 * (config->longitude() + RadiansToDegrees(sunriseHourAngle)) - CalculateEquationOfTime(julianCenturies);
+    double sunriseHourAngle = CalculateSunEventHourAngle(Config::Instance->latitude(), CalculateSolarDeclination(julianCenturies), angle, sunrise);
+    double timeMinutes = 720 - 4 * (Config::Instance->longitude() + RadiansToDegrees(sunriseHourAngle)) - CalculateEquationOfTime(julianCenturies);
 
     double sunriseJulianCenturies = CalculateJulianCenturies(julianDate + timeMinutes / 1440.0);
-    sunriseHourAngle = CalculateSunEventHourAngle(config->latitude(), CalculateSolarDeclination(sunriseJulianCenturies), angle, sunrise);
-    timeMinutes = 720 - 4 * (config->longitude() + RadiansToDegrees(sunriseHourAngle)) - CalculateEquationOfTime(sunriseJulianCenturies);
+    sunriseHourAngle = CalculateSunEventHourAngle(Config::Instance->latitude(), CalculateSolarDeclination(sunriseJulianCenturies), angle, sunrise);
+    timeMinutes = 720 - 4 * (Config::Instance->longitude() + RadiansToDegrees(sunriseHourAngle)) - CalculateEquationOfTime(sunriseJulianCenturies);
     return pt::ptime(date, pt::time_duration(Utility::GetTimezoneOffset(), 0, static_cast<int>(std::round(timeMinutes * 60.0))));
 }
 
-pt::ptime Astronomy::CalculateSunrise(Config::Pointer config, dt::date date)
+pt::ptime Astronomy::CalculateSunrise(dt::date date)
 {
-    return CalculateSunEventTimestamp(config, date, config->sunriseAngle(), true);
+    return CalculateSunEventTimestamp(date, Config::Instance->sunriseAngle(), true);
 }
 
-pt::ptime Astronomy::CalculateSunset(Config::Pointer config, dt::date date)
+pt::ptime Astronomy::CalculateSunset(dt::date date)
 {
-    return CalculateSunEventTimestamp(config, date, config->sunsetAngle(), false);
+    return CalculateSunEventTimestamp(date, Config::Instance->sunsetAngle(), false);
 }
 
 } // namespace kc

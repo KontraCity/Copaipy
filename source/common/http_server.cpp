@@ -38,7 +38,7 @@ void HttpServer::Connection::getSensors(Sensors::Location location, int indentat
     m_displayUi->updateEventTimestamp(pt::second_clock::local_time());
     try
     {
-        Sensors::Measurement measurement = Sensors::Measure(m_config, location);
+        Sensors::Measurement measurement = Sensors::Measure(location);
 
         json aht20Object;
         aht20Object["temperature"] = measurement.aht20.temperature;
@@ -87,12 +87,12 @@ void HttpServer::Connection::getSensors(Sensors::Location location, int indentat
 
 void HttpServer::Connection::getDisplay(int indentation)
 {
-    json displayJson;
-    displayJson["enabled"] = m_displayUi->enabled();
+    json displayObject;
+    displayObject["enabled"] = m_displayUi->enabled();
 
     json responseJson;
     responseJson["_success"] = true;
-    responseJson["display"] = displayJson;
+    responseJson["display"] = displayObject;
 
     m_response.result(beast::http::status::ok);
     m_response.set(beast::http::field::content_type, "application/json");
@@ -108,17 +108,65 @@ void HttpServer::Connection::postDisplay(int indentation)
         bool enabled = requestJson.at("enabled");
         enabled ? m_displayUi->enable() : m_displayUi->disable();
 
-        json displayJson;
-        displayJson["enabled"] = enabled;
+        json displayObject;
+        displayObject["enabled"] = enabled;
 
         json responseJson;
         responseJson["_success"] = true;
-        responseJson["display"] = displayJson;
+        responseJson["display"] = displayObject;
 
         m_response.result(beast::http::status::ok);
         m_response.set(beast::http::field::content_type, "application/json");
         beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
         m_logger->info(m_logMessage(fmt::format("OK: Display is {}", enabled ? "enabled" : "disabled")));
+    }
+    catch (const json::exception&)
+    {
+        json responseJson;
+        responseJson["_success"] = false;
+        responseJson["what"] = "Couldn't parse request JSON";
+
+        m_response.result(beast::http::status::bad_request);
+        m_response.set(beast::http::field::content_type, "application/json");
+        beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+        m_logger->error(m_logMessage("Bad Request: Couldn't parse request JSON"));
+    }
+}
+
+void HttpServer::Connection::getMaster(int indentation)
+{
+    json masterObject;
+    masterObject["started"] = m_captureMaster->started();
+
+    json responseJson;
+    responseJson["_success"] = true;
+    responseJson["master"] = masterObject;
+
+    m_response.result(beast::http::status::ok);
+    m_response.set(beast::http::field::content_type, "application/json");
+    beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+    m_logger->info(m_logMessage("OK"));
+}
+
+void HttpServer::Connection::postMaster(int indentation)
+{
+    try
+    {
+        json requestJson = json::parse(beast::buffers_to_string(m_request.body().data()));
+        bool started = requestJson.at("started");
+        started ? m_captureMaster->start() : m_captureMaster->stop();
+
+        json masterObject;
+        masterObject["started"] = started;
+
+        json responseJson;
+        responseJson["_success"] = true;
+        responseJson["master"] = masterObject;
+
+        m_response.result(beast::http::status::ok);
+        m_response.set(beast::http::field::content_type, "application/json");
+        beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+        m_logger->info(m_logMessage(fmt::format("OK: Capture master is {}", started ? "started" : "stopped")));
     }
     catch (const json::exception&)
     {
@@ -166,6 +214,16 @@ void HttpServer::Connection::produceResponse()
             methodNotAllowed();
         return;
     }
+    else if (target.resource == "/api/master")
+    {
+        if (m_request.method() == beast::http::verb::get)
+            getMaster(indentation);
+        else if (m_request.method() == beast::http::verb::post)
+            postMaster(indentation);
+        else
+            methodNotAllowed();
+        return;
+    }
 
     notFound();
     return;
@@ -182,10 +240,10 @@ void HttpServer::Connection::sendResponse()
     });
 }
 
-HttpServer::Connection::Connection(Logger logger, Config::Pointer config, Display::Ui::Pointer displayUi, asio::ip::tcp::socket& socket)
+HttpServer::Connection::Connection(Logger logger, Display::Ui::Pointer displayUi, Capture::Master::Pointer captureMaster, asio::ip::tcp::socket& socket)
     : m_logger(logger)
-    , m_config(config)
     , m_displayUi(displayUi)
+    , m_captureMaster(captureMaster)
     , m_socket(std::move(socket))
     , m_buffer(1024 * 8)
     , m_timeout(m_socket.get_executor(), std::chrono::seconds(10))
@@ -233,23 +291,23 @@ void HttpServer::startAccepting()
             return;
         }
 
-        std::make_shared<Connection>(m_logger, m_config, m_displayUi, m_socket)->handleRequest();
+        std::make_shared<Connection>(m_logger, m_displayUi, m_captureMaster, m_socket)->handleRequest();
         startAccepting();
     });
 }
 
-HttpServer::HttpServer(Config::Pointer config, Display::Ui::Pointer displayUi)
+HttpServer::HttpServer(Display::Ui::Pointer displayUi, Capture::Master::Pointer captureMaster)
     : m_logger(std::make_shared<spdlog::logger>(Utility::CreateLogger("http_server")))
-    , m_config(config)
     , m_displayUi(displayUi)
+    , m_captureMaster(captureMaster)
     , m_context(1)
-    , m_acceptor(m_context, { asio::ip::make_address("0.0.0.0"), config->httpPort() })
+    , m_acceptor(m_context, { asio::ip::make_address("0.0.0.0"), Config::Instance->httpPort() })
     , m_socket(m_context)
 {}
 
 void HttpServer::start()
 {
-    m_logger->info("Listening for connections on port {}", m_config->httpPort());
+    m_logger->info("Listening for connections on port {}", Config::Instance->httpPort());
     startAccepting();
     m_context.run();
 }

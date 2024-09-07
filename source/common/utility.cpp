@@ -52,4 +52,44 @@ int Utility::GetTimezoneOffset()
     return static_cast<int>(std::round((localTime - universalTime).total_seconds() / 3600.0));
 }
 
+std::string Utility::ToString(dt::date date)
+{
+    return fmt::format(
+        "{:#02d}.{:#02d}.{:#02d}",
+        static_cast<int>(date.day()), date.month().as_number(), static_cast<int>(date.year()) % 100
+    );
+}
+
+std::string Utility::ToString(pt::time_duration duration, bool force)
+{
+    if (force)
+        return fmt::format("{:#02d}:{:#02d}:{:#02d}", duration.hours(), duration.minutes(), duration.seconds());
+    if (duration.hours())
+        return fmt::format("{}:{:#02d}:{:#02d}", duration.hours(), duration.minutes(), duration.seconds());
+    return fmt::format("{}:{:#02d}", duration.minutes(), duration.seconds());
+}
+
+std::string Utility::ToString(pt::ptime timestamp)
+{
+    return fmt::format("{} {}", ToString(timestamp.date()), ToString(timestamp.time_of_day(), true));
+}
+
+std::string Utility::ToFilename(pt::ptime timestamp)
+{
+    std::string result = fmt::format(
+        "{:#04d}.{:#02d}.{:#02d} {:#02d}-{:#02d}-{:#02d}",
+        static_cast<int>(timestamp.date().year()),
+        timestamp.date().month().as_number(),
+        static_cast<int>(timestamp.date().day()),
+        timestamp.time_of_day().hours(),
+        timestamp.time_of_day().minutes(),
+        timestamp.time_of_day().seconds()
+    );
+
+    int milliseconds = timestamp.time_of_day().fractional_seconds() / 1000;
+    if (milliseconds)
+        result += fmt::format(".{:#03d}", milliseconds);
+    return result;
+}
+
 } // namespace kc

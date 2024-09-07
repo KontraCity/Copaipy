@@ -61,7 +61,6 @@ namespace Display
         static pt::time_duration TimeToNextMinute();
 
     private:
-        Config::Pointer m_config;
         std::deque<Message> m_queue;
         pt::ptime m_eventTimestamp;
 
@@ -87,8 +86,7 @@ namespace Display
 
     public:
         /// @brief Initialize display UI
-        /// @param config Initialized config
-        Ui(Config::Pointer config);
+        Ui();
 
         ~Ui();
 

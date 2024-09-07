@@ -38,10 +38,9 @@ namespace Sensors
     };
 
     /// @brief Peform sensors measurement
-    /// @param config System config
     /// @param location Location to measure
     /// @return Sensors measurement
-    Measurement Measure(Config::Pointer config, Location location);
+    Measurement Measure(Location location);
 }
 
 } // namespace kc

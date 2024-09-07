@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(Copaipy)
 
 ## --- Compiler configuration --- ##
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 include_directories("include/")
 
@@ -13,6 +13,10 @@ find_package(spdlog CONFIG REQUIRED)
 
 ## --- Executable configuration --- ##
 add_executable(Copaipy "source/main.cpp"
+    # Capture modules
+    "source/capture/event.cpp"
+    "source/capture/master.cpp"
+
     # Common modules
     "source/common/astronomy.cpp"
     "source/common/config.cpp"

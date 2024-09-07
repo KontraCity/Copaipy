@@ -3,6 +3,12 @@ using namespace kc::ConfigConst;
 
 namespace kc {
 
+/*
+*   std::make_unique() needs public constructor, but the Config class uses singleton pattern.
+*   This is why operator new is used instead.
+*/
+const std::unique_ptr<Config> Config::Instance(new Config);
+
 void Config::GenerateSampleFile()
 {
     std::ofstream configFile(ConfigFile);
@@ -37,7 +43,10 @@ Config::Config()
 {
     std::ifstream configFile(ConfigFile);
     if (!configFile)
-        throw Error(fmt::format("Couldn't open configuration file \"{}\"", ConfigFile).c_str());
+    {
+        m_error = fmt::format("Couldn't open configuration file \"{}\"", ConfigFile);
+        return;
+    }
 
     try
     {
@@ -61,19 +70,39 @@ Config::Config()
     }
     catch (const json::exception&)
     {
-        throw Error(fmt::format("Couldn't parse configuration file \"{}\" JSON", ConfigFile).c_str());
+        m_error = fmt::format("Couldn't parse configuration file \"{}\" JSON", ConfigFile);
+        return;
     }
 
     if (m_timeReserve < 0)
-        throw Error(fmt::format("Time reserve value can't be negative (current: {})", m_timeReserve).c_str());
+    {
+        m_error = fmt::format("Time reserve value can't be negative (current: {})", m_timeReserve);
+        return;
+    }
+
     if (m_latitude < -90.0 || m_latitude > 90.0)
-        throw Error(fmt::format("Latitude value is not in range (current: {}, range: [-90; 90])", m_latitude).c_str());
+    {
+        m_error = fmt::format("Latitude value is not in range (current: {}, range: [-90; 90])", m_latitude);
+        return;
+    }
+
     if (m_longitude < -180.0 || m_longitude > 180.0)
-        throw Error(fmt::format("Longitude value is not in range (current: {}, range: [-180; 180])", m_longitude).c_str());
+    {
+        m_error = fmt::format("Longitude value is not in range (current: {}, range: [-180; 180])", m_longitude);
+        return;
+    }
+
     if (m_sunriseAngle < 80.0 || m_sunriseAngle > 94.7)
-        throw Error(fmt::format("Target sunrise angle value is not in range (current: {}, range: [80; 94.7])", m_sunriseAngle).c_str());
+    {
+        m_error = fmt::format("Target sunrise angle value is not in range (current: {}, range: [80; 94.7])", m_sunriseAngle);
+        return;
+    }
+
     if (m_sunsetAngle < 80.0 || m_sunsetAngle > 94.7)
-        throw Error(fmt::format("Target sunset angle value is not in range (current: {}, range: [80; 94.7])", m_sunsetAngle).c_str());
+    {
+        m_error = fmt::format("Target sunset angle value is not in range (current: {}, range: [80; 94.7])", m_sunsetAngle);
+        return;
+    }
 }
 
 } // namespace kc

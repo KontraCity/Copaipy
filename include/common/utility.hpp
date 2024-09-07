@@ -5,6 +5,7 @@
 #include <chrono>
 #include <thread>
 #include <cmath>
+#include <algorithm>
 #include <mutex>
 #include <condition_variable>
 
@@ -36,8 +37,8 @@ namespace Utility
     /// @brief Perform interruptable execution delay
     /// @param lock Mutex lock to use
     /// @param cv Condition variable to use
-    /// @param seconds Amount of seconds to sleep for
-    /// @return Whether or not the sleep was interrupted
+    /// @param seconds Amount of seconds to delay for
+    /// @return True if the delay was interrupted
     bool InterSleep(std::unique_lock<std::mutex>& lock, std::condition_variable& cv, double seconds);
 
     /// @brief Round value to decimal places
@@ -56,6 +57,27 @@ namespace Utility
     /// @brief Get local timezone offset in hours
     /// @return Local timezone offset in hours
     int GetTimezoneOffset();
+
+    /// @brief Convert date to string
+    /// @param date The date to convert
+    /// @return Converted string
+    std::string ToString(dt::date date);
+
+    /// @brief Convert duration to string
+    /// @param duration The duration to convert
+    /// @param force Whether to convert all fields or not
+    /// @return Converted string
+    std::string ToString(pt::time_duration duration, bool force = false);
+
+    /// @brief Convert timestamp to string
+    /// @param timestamp The timestamp to convert
+    /// @return Converted string
+    std::string ToString(pt::ptime timestamp);
+
+    /// @brief Convert timestamp to filename
+    /// @param timestamp The timestamp to convert
+    /// @return Converted filename
+    std::string ToFilename(pt::ptime timestamp);
 }
 
 } // namespace kc

@@ -2,8 +2,7 @@
 #include <filesystem>
 
 // Custom modules
-#include "common/astronomy.hpp"
-#include "common/stopwatch.hpp"
+#include "capture/master.hpp"
 #include "common/utility.hpp"
 #include "common/config.hpp"
 #include "common/http_server.hpp"
@@ -131,22 +130,18 @@ static int GenerateFiles()
     return 0;
 }
 
-/// @brief Initialize config
-/// @return Initialized config
-static Config::Pointer Init(const ParseResult& result)
+/// @brief Check config initialization
+/// @return True if config initialized successfully
+static bool CheckConfig(const ParseResult& result)
 {
     spdlog::logger logger = Utility::CreateLogger("init", result.forceColor);
-    try
-    {
-        return std::make_shared<Config>();
-    }
-    catch (const Config::Error& error)
-    {
-        logger.error("Configuration error: {}", error.what());
-        logger.info("Hint: Check configuration file \"{}\"", ConfigConst::ConfigFile);
-        logger.info("Hint: You can generate necessary files by running {} --generate", result.executableName);
-        return {};
-    }
+    if (Config::Instance->error().empty())
+        return true;
+
+    logger.error("Configuration error: {}", Config::Instance->error());
+    logger.info("Hint: Check configuration file \"{}\"", ConfigConst::ConfigFile);
+    logger.info("Hint: You can generate necessary files by running {} --generate", result.executableName);
+    return false;
 }
 
 int main(int argc, char** argv)
@@ -164,38 +159,26 @@ int main(int argc, char** argv)
             break;
     }
 
-    Config::Pointer config = Init(result);
-    if (!config)
+    bool configCheck = CheckConfig(result);
+    if (!configCheck)
         return 1;
 
-    /*
     fmt::print(
         "Welcome to Copaipy\n"
         "GitHub repository: https://github.com/KontraCity/Copaipy\n"
     );
-    */
 
     spdlog::logger logger = Utility::CreateLogger("main");
     try
     {
-        Stopwatch stopwatch;
-        dt::date date = dt::day_clock::local_day();
-        pt::ptime sunrise = Astronomy::CalculateSunrise(config, date);
-        pt::ptime sunset = Astronomy::CalculateSunset(config, date);
-        uint64_t elapsedMs = stopwatch.elapsed<Stopwatch::Milliseconds>();
-
-        fmt::print("Date: {:02d}.{:02d}.{:04d}\n", date.day().as_number(), date.month().as_number(), static_cast<int>(date.year()));
-        fmt::print("Sunrise: {:02d}:{:02d} (angle: {:.2f} degrees)\n", sunrise.time_of_day().hours(), sunrise.time_of_day().minutes(), config->sunriseAngle());
-        fmt::print("Sunset: {:02d}:{:02d} (angle: {:.2f} degrees)\n", sunset.time_of_day().hours(), sunset.time_of_day().minutes(), config->sunsetAngle());
-        fmt::print("Calculated in {:.2f} seconds", elapsedMs / 1000.0);
-
-        /*
-        Display::Ui::Pointer displayUi = std::make_shared<Display::Ui>(config);
+        Display::Ui::Pointer displayUi = std::make_shared<Display::Ui>();
         displayUi->enable();
 
-        HttpServer server(config, displayUi);
-        server.start();
-        */
+        Capture::Master::Pointer captureMaster = std::make_shared<Capture::Master>();
+        captureMaster->start();
+
+        HttpServer httpServer(displayUi, captureMaster);
+        httpServer.start();
     }
     catch (const std::exception& error)
     {

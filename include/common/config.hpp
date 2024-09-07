@@ -60,15 +60,8 @@ namespace ConfigConst
 class Config
 {
 public:
-    // Shared config instance pointer
-    using Pointer = std::shared_ptr<Config>;
-
-    // Configuration file read/parse error
-    class Error : public std::logic_error
-    {
-    public:
-        using logic_error::logic_error;
-    };
+    // Singleton instance
+    static const std::unique_ptr<Config> Instance;
 
 public:
     /// @brief Generate sample configuration file for user to fill out
@@ -76,6 +69,7 @@ public:
     static void GenerateSampleFile();
 
 private:
+    std::string m_error;
     uint16_t m_httpPort;
     int m_timeReserve;
     std::string m_externalPort;
@@ -85,10 +79,17 @@ private:
     double m_sunriseAngle;
     double m_sunsetAngle;
 
-public:
+private:
     /// @brief Read and parse configuration file
-    /// @throw kc::Config::Error if reading/parsing error occurs
     Config();
+
+public:
+    /// @brief Get configuration file read and parse error message
+    /// @return Configuration file read and parse error message (empty if no error)
+    inline const std::string& error() const
+    {
+        return m_error;
+    }
 
     /// @brief Get HTTP server port
     /// @return HTTP server port
