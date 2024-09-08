@@ -35,11 +35,10 @@ void HttpServer::Connection::methodNotAllowed()
 
 void HttpServer::Connection::getSensors(Sensors::Location location, int indentation)
 {
-    m_displayUi->updateEventTimestamp(pt::second_clock::local_time());
     try
     {
         Sensors::Measurement measurement = Sensors::Measure(location);
-
+        
         json aht20Object;
         aht20Object["temperature"] = measurement.aht20.temperature;
         aht20Object["humidity"] = measurement.aht20.humidity;
@@ -59,9 +58,13 @@ void HttpServer::Connection::getSensors(Sensors::Location location, int indentat
         m_logger->info(m_logMessage("OK"));
 
         m_displayUi->showMessage({
-            location == Sensors::Location::External ? "Ext. measurement" : "Int. measurement", {
-                { fmt::format("\7{:>15}", m_socket.remote_endpoint().address().to_string()) },
-                { fmt::format("\6{:>15}", "Successful \1") }
+            {            
+                location == Sensors::Location::External ? "Ext. measurement" : "Int. measurement",
+                fmt::format("\7{:>15}", m_socket.remote_endpoint().address().to_string())
+            },
+            {
+                "Successful     \4",
+                "\6         200 OK"
             }
         });
     }
@@ -77,9 +80,13 @@ void HttpServer::Connection::getSensors(Sensors::Location location, int indentat
         m_logger->error(m_logMessage(fmt::format("Internal Server Error: {}", error.what())));
 
         m_displayUi->showMessage({
-            location == Sensors::Location::External ? "Ext. measurement" : "Int. measurement", {
-                { fmt::format("\7{:>15}", m_socket.remote_endpoint().address().to_string()) },
-                { fmt::format("\6{:>15}", "Sensor error \2"), 1.0, 4 },
+            {
+                location == Sensors::Location::External ? "Ext. measurement" : "Int. measurement",
+                fmt::format("\7{:>15}", m_socket.remote_endpoint().address().to_string())
+            },
+            {
+                "Sensor error   \5",
+                "\6 500 Internal..", 1.0, 5
             }
         });
     }

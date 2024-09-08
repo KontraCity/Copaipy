@@ -20,6 +20,7 @@
 // Custom modules
 #include "common/astronomy.hpp"
 #include "common/config.hpp"
+#include "common/utility.hpp"
 
 namespace kc {
 
@@ -35,6 +36,7 @@ namespace Capture
         namespace Objects
         {
             constexpr const char* Name = "name";
+            constexpr const char* ShortName = "short_name";
             constexpr const char* Timestamp = "timestamp";
         }
     }
@@ -64,14 +66,16 @@ namespace Capture
     private:
         int m_id;
         std::string m_name;
+        std::string m_shortName;
         pt::ptime m_timestamp;
         Pointer m_overlapping;
 
     public:
         /// @brief Create an event
         /// @param name Event name
+        /// @param shortName Short event name
         /// @param timestamp Event timestamp
-        Event(const std::string& name, pt::ptime timestamp);
+        Event(const std::string& name, const std::string& shortName, pt::ptime timestamp);
 
         /// @brief Parse event from file
         /// @param filename Name of the file to parse
@@ -82,6 +86,11 @@ namespace Capture
         /// @param filename Name of the file to save
         /// @throw std::runtime_error if internal error occurs
         void save(const std::string& filename) const;
+
+        /// @brief Get event summary
+        /// @param length Summary string length
+        /// @return Event summary
+        std::string summary(int length = -1) const;
 
         /// @brief Get event ID
         /// @return Event ID
@@ -102,6 +111,13 @@ namespace Capture
         inline const std::string& name() const
         {
             return m_name;
+        }
+
+        /// @brief Get short event name
+        /// @return Short event name
+        inline const std::string& shortName() const
+        {
+            return m_shortName;
         }
 
         /// @brief Get event timestamp

@@ -9,19 +9,22 @@ pt::time_duration Display::Ui::TimeToNextMinute()
     return pt::ptime(nextMinute.date(), pt::time_duration(nextMinute.time_of_day().hours(), nextMinute.time_of_day().minutes(), 0)) - now;
 }
 
-void Display::Ui::updateEventTimestampDuration(pt::ptime now)
+void Display::Ui::updateNextEventInfo(pt::ptime now)
 {
-    pt::time_duration duration = now - m_eventTimestamp;
-    if (m_eventTimestamp.is_not_a_date_time() || std::abs(duration.total_seconds()) > 100 * 60 * 60) // We can only display up to "99:59"
+    if (!m_nextEvent)
     {
-        print(0, 11, "\3\3:\3\3");
+        print(0, 11, "\3\3\6\3\3");
         return;
     }
 
+    size_t secondsTo = std::abs((m_nextEvent->timestamp() - now).total_seconds());
+    if (secondsTo > 99 * 60)
+        secondsTo = 99 * 60;
+
     print(0, 11, fmt::format(
-        "{:0>2}:{:0>2}",
-        std::abs(duration.hours()),
-        std::abs(duration.minutes())
+        "{}\6{:0>2}",
+        m_nextEvent->shortName(),
+        std::round(secondsTo / 60.0)
     ));
 }
 
@@ -40,7 +43,7 @@ void Display::Ui::updateFunction()
                 return;
 
             pt::ptime now = pt::second_clock::local_time() + pt::seconds(10);
-            updateEventTimestampDuration(now);
+            updateNextEventInfo(now);
             print(1, 11, fmt::format(
                 "{:0>2}:{:0>2}",
                 now.time_of_day().hours(),
@@ -52,26 +55,29 @@ void Display::Ui::updateFunction()
                 Sensors::Measurement externalMeasurement = Sensors::Measure(Sensors::Location::External);
                 externalMeasurement.aht20.humidity = Utility::Limit(externalMeasurement.aht20.humidity, 0, 99.9);
                 print(0, 0, fmt::format(
-                    "{: >5.1f}|{: >4.1f}|",
+                    "{:>5.1f}|{:4.1f}|",
                     externalMeasurement.bmp280.temperature,
                     externalMeasurement.aht20.humidity
                 ));
+            }
+            catch (...)
+            {
+                print(0, 0, "   FAIL   |");
+            }
 
+            try
+            {
                 Sensors::Measurement internalMeasurement = Sensors::Measure(Sensors::Location::Internal);
                 internalMeasurement.aht20.humidity = Utility::Limit(internalMeasurement.aht20.humidity, 0, 99.9);
                 print(1, 0, fmt::format(
-                    "{: >5.1f}|{: >4.1f}|",
+                    "{:>5.1f}|{:4.1f}|",
                     internalMeasurement.bmp280.temperature,
                     internalMeasurement.aht20.humidity
                 ));
             }
             catch (...)
             {
-                print(0, 0, fmt::format("{: <16}", "Measurement"));
-                print(1, 0, fmt::format(
-                    "{: <11}",
-                    "Failure \2"
-                ));
+                print(1, 0, "   FAIL   |");
             }
         }
 
@@ -107,13 +113,10 @@ void Display::Ui::messageFunction()
             message = std::move(m_queue[0]);
             m_queue.pop_front();
         }
-        if (message.submessages.empty())
-            message.submessages.push_back({ "[no submessages]" });
 
         backlight(false);
         clear();
-        print(0, 0, message.header);
-        for (size_t index = 0, size = message.submessages.size(); index < size; ++index)
+        for (size_t index = 0, size = message.size(); index < size; ++index)
         {
             if (!backlight())
             {
@@ -124,33 +127,35 @@ void Display::Ui::messageFunction()
                 backlight(true);
             }
 
-            const Message::Submessage& submessage = message.submessages[index];
-            if (!submessage.blinks)
+            const Screen& screen = message[index];
+            if (!screen.blinks)
             {
                 std::unique_lock lock(m_mutex);
-                print(1, 0, submessage.string);
+                print(0, 0, screen.line1);
+                print(1, 0, screen.line2);
                 if (m_messageThreadStatus == ThreadStatus::Stopped)
                     return;
-                if (Utility::InterSleep(lock, m_cv, submessage.delay))
+                if (Utility::InterSleep(lock, m_cv, screen.delay))
                     return;
             }
             else
             {
-                for (uint32_t blink = 0; blink < submessage.blinks; ++blink)
+                for (uint32_t blink = 0; blink < screen.blinks; ++blink)
                 {
                     std::unique_lock lock(m_mutex);
-                    print(1, 0, submessage.string);
+                    print(0, 0, screen.line1);
+                    print(1, 0, screen.line2);
                     if (m_messageThreadStatus == ThreadStatus::Stopped)
                         return;
-                    if (Utility::InterSleep(lock, m_cv, submessage.delay))
+                    if (Utility::InterSleep(lock, m_cv, screen.delay))
                         return;
 
-                    if (blink + 1 != submessage.blinks)
+                    if (blink + 1 != screen.blinks)
                     {
-                        print(1, 0, std::string(16, ' '));
+                        clear();
                         if (m_messageThreadStatus == ThreadStatus::Stopped)
                             return;
-                        if (Utility::InterSleep(lock, m_cv, submessage.delay))
+                        if (Utility::InterSleep(lock, m_cv, screen.delay))
                             return;
                     }
                 }
@@ -158,7 +163,7 @@ void Display::Ui::messageFunction()
             
             if (index + 1 != size)
             {
-                print(1, 0, std::string(16, ' '));
+                clear();
                 Utility::Sleep(0.3);
             }
         }
@@ -166,7 +171,7 @@ void Display::Ui::messageFunction()
 
     backlight(false);
     print(previousScreen);
-    updateEventTimestampDuration(pt::second_clock::local_time());
+    updateNextEventInfo(pt::second_clock::local_time());
     Utility::Sleep(0.3);
 
     std::lock_guard lock(m_mutex);
@@ -210,14 +215,25 @@ void Display::Ui::enable()
     if (!startupDisplayed)
     {
         configure(true, false, false);
-        showMessage({ fmt::format("{:^16}", "[Startup]"), {
-            { fmt::format("HTTP port:{:>6}", Config::Instance->httpPort()), 2.0 },
-            { fmt::format("Time res.:{:>5.2f}s", Config::Instance->timeReserve() / 1000.0), 2.0 },
-            { fmt::format("Latitude:{:>6.1f}\337", Config::Instance->latitude()), 2.0 },
-            { fmt::format("Longitude:{:>5.1f}\337", Config::Instance->longitude()), 2.0 },
-            { fmt::format("Sunrise:{:>7.3f}\337", Config::Instance->sunriseAngle()), 2.0 },
-            { fmt::format("Sunset:{:>8.3f}\337", Config::Instance->sunsetAngle()), 2.0 }
-        }});
+        showMessage({
+            {
+                " Copaipy        ",
+                " Configuration: ",
+                2.0
+            },
+            {
+                fmt::format("HTTP port {:>6}", Config::Instance->httpPort()),
+                fmt::format("Time res. {:>5.1f}s", Config::Instance->timeReserve() / 1000.0)
+            },
+            {
+                fmt::format("Latitude {:>6.1f}\337", Config::Instance->latitude()),
+                fmt::format("Longitude {:>5.1f}\337", Config::Instance->longitude())
+            },
+            {
+                fmt::format("Sunrise {:>7.3f}\337", Config::Instance->sunriseAngle()),
+                fmt::format("Sunset {:>8.3f}\337", Config::Instance->sunsetAngle())
+            },
+        });
         startupDisplayed = true;
         Utility::Sleep(0.1);
     }
@@ -268,12 +284,21 @@ void Display::Ui::showMessage(const Message& message)
     }
 }
 
-void Display::Ui::updateEventTimestamp(pt::ptime timestamp)
+void Display::Ui::updateNextEvent(Capture::Event* event)
 {
-    std::lock_guard lock(m_mutex);
-    m_eventTimestamp = timestamp;
+    {
+        std::lock_guard lock(m_mutex);
+        if (event)
+            m_nextEvent = std::make_unique<Capture::Event>(event->name(), event->shortName(), event->timestamp());
+        else
+            m_nextEvent.reset();
+    }
+
     if (m_messageThreadStatus != ThreadStatus::Running)
-        updateEventTimestampDuration(pt::second_clock::local_time());
+    {
+        std::lock_guard updateLock(m_updateMutex);
+        updateNextEventInfo(pt::second_clock::local_time());
+    }
 }
 
 } // namespace kc

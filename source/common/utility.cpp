@@ -92,4 +92,16 @@ std::string Utility::ToFilename(pt::ptime timestamp)
     return result;
 }
 
+std::string Utility::Truncate(const std::string& string, size_t maxLength, bool end)
+{
+    if (string.length() <= maxLength)
+        return string;
+    if (maxLength <= 2)
+        return std::string(maxLength, '.');
+
+    if (end)
+        return (std::string(string.begin(), string.begin() + maxLength - 2) + "..");
+    return (".." + std::string(string.end() - maxLength + 2, string.end()));
+}
+
 } // namespace kc

@@ -174,7 +174,7 @@ int main(int argc, char** argv)
         Display::Ui::Pointer displayUi = std::make_shared<Display::Ui>();
         displayUi->enable();
 
-        Capture::Master::Pointer captureMaster = std::make_shared<Capture::Master>();
+        Capture::Master::Pointer captureMaster = std::make_shared<Capture::Master>(displayUi);
         captureMaster->start();
 
         HttpServer httpServer(displayUi, captureMaster);

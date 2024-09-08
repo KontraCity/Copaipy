@@ -16,6 +16,7 @@
 #include <fmt/format.h>
 
 // Custom modules
+#include "capture/event.hpp"
 #include "common/config.hpp"
 #include "common/sensors.hpp"
 #include "display/master.hpp"
@@ -34,18 +35,15 @@ namespace Display
         // Shared display UI instance pointer
         using Pointer = std::shared_ptr<Ui>;
 
-        struct Message
+        struct Screen
         {
-            struct Submessage
-            {
-                std::string string;
-                double delay = 3.0;
-                uint32_t blinks = 0;
-            };
-
-            std::string header;
-            std::vector<Submessage> submessages;
+            std::string line1;
+            std::string line2;
+            double delay = 5.0;
+            uint32_t blinks = 0;
         };
+
+        using Message = std::vector<Screen>;
 
     private:
         enum class ThreadStatus
@@ -62,7 +60,7 @@ namespace Display
 
     private:
         std::deque<Message> m_queue;
-        pt::ptime m_eventTimestamp;
+        Capture::Event::Pointer m_nextEvent;
 
         std::mutex m_mutex;
         std::mutex m_updateMutex;
@@ -74,9 +72,9 @@ namespace Display
         ThreadStatus m_messageThreadStatus;
 
     private:
-        /// @brief Update duration to event timestamp on the display
+        /// @brief Update next event info on the display
         /// @param now Current time
-        void updateEventTimestampDuration(pt::ptime now);
+        void updateNextEventInfo(pt::ptime now);
 
         /// @brief Update thread implementation
         void updateFunction();
@@ -104,9 +102,9 @@ namespace Display
         /// @param message The message to show
         void showMessage(const Message& message);
 
-        /// @brief Update event timestamp
-        /// @param timestamp The timestamp to update to
-        void updateEventTimestamp(pt::ptime timestamp);
+        /// @brief Update next event
+        /// @param event The event to update to
+        void updateNextEvent(Capture::Event* event);
     };
 }
 

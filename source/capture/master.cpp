@@ -27,7 +27,7 @@ Capture::Event::Pointer Capture::Master::CreateCaptureFilesystem()
         }
     }
 
-    Event::Pointer lastEvent = std::make_unique<Event>("Start", pt::second_clock::local_time());
+    Event::Pointer lastEvent = std::make_unique<Event>("Start", "ST", pt::second_clock::local_time());
     lastEvent->save(fmt::format("{}/{}", CaptureDirectory, LastEventFile));
     return lastEvent;
 }
@@ -105,17 +105,17 @@ void Capture::Master::captureFunction()
 
         for (dt::date date = m_lastEvent->timestamp().date(), today = dt::day_clock::local_day(); date <= today; date += dt::days(1))
         {
-            GenerationResult result = generateEvents(date);
+            generateEvents(date);
             if (date == today)
             {
-                LogGenerationResult(result);
+                LogGenerationResult(m_lastGenerationResult);
             }
-            else if (result.expired)
+            else if (m_lastGenerationResult.expired)
             {
                 m_logger.warn(
                     "{} event{} expired for [{}]",
-                    result.expired,
-                    result.expired == 1 ? " is" : "s are",
+                    m_lastGenerationResult.expired,
+                    m_lastGenerationResult.expired == 1 ? " is" : "s are",
                     Utility::ToString(date)
                 );
             }
@@ -123,64 +123,149 @@ void Capture::Master::captureFunction()
 
         while (true)
         {
-            while (!m_queue.empty())
+            Event::Pointer& event = m_queue[0];
+            pt::time_duration toEvent = event->timestamp() - pt::microsec_clock::local_time();
+            if (toEvent.total_milliseconds() <= Config::Instance->timeReserve())
             {
-                Event::Pointer& event = m_queue[0];
-                pt::time_duration toEvent = (event->timestamp() - pt::microsec_clock::local_time());
-                if (toEvent.total_milliseconds() <= Config::Instance->timeReserve())
-                {
-                    m_logger.error(
-                        "Event [#{} \"{}\"] is expired, can't sleep [{}]!",
-                        event->id(), event->name(), Utility::ToString(toEvent)
-                    );
-
-                    capture(std::move(event), true);
-                    m_queue.pop_front();
-                    continue;
-                }
-
-                m_logger.info(
-                    "Sleeping [{}] to next event [#{} \"{}\"]",
-                    Utility::ToString(toEvent), event->id(), event->name()
+                m_logger.error(
+                    "Event [#{} \"{}\"] is expired, can't sleep [{}]!",
+                    event->id(), event->name(), Utility::ToString(toEvent)
                 );
-                {
-                    std::unique_lock lock(m_mutex);
-                    if (m_threadStatus == ThreadStatus::Stopped)
-                        return;
-                    if (Utility::InterSleep(lock, m_cv, toEvent.total_milliseconds() / 1000.0))
-                        return;
-                }
 
-                size_t overlappingEvents = CountOverlappingEvents(event);
-                if (overlappingEvents)
-                {
-                    m_logger.info(
-                        "Capturing event [#{} \"{}\"] and {} overlapping",
-                        event->id(), event->name(), overlappingEvents
-                    );
-                }
-                else
-                {
-                    m_logger.info(
-                        "Capturing event [#{} \"{}\"]",
-                        event->id(), event->name()
-                    );
-                }
-
-                capture(std::move(event));
+                capture(std::move(event), true);
                 m_queue.pop_front();
+                continue;
             }
-            LogGenerationResult(generateEvents(m_lastEvent->timestamp().date() + dt::days(1)));
+
+            m_logger.info(
+                "Sleeping [{}] to next event [#{} \"{}\"]",
+                Utility::ToString(toEvent), event->id(), event->name()
+            );
+            m_displayUi->updateNextEvent(event.get());
+
+            if (!sleepToTimestamp(event->timestamp(), true))
+            {
+                m_displayUi->updateNextEvent(nullptr);
+                return;
+            }
+
+            /* Preparation for capture */
+
+            if (!sleepToTimestamp(event->timestamp()))
+            {
+                m_displayUi->updateNextEvent(nullptr);
+                return;
+            }
+
+            size_t overlappingEvents = CountOverlappingEvents(event);
+            if (overlappingEvents)
+            {
+                m_logger.info(
+                    "Capturing event [#{} \"{}\"] and {} overlapping",
+                    event->id(), event->name(), overlappingEvents
+                );
+            }
+            else
+            {
+                m_logger.info(
+                    "Capturing event [#{} \"{}\"]",
+                    event->id(), event->name()
+                );
+            }
+
+            capture(std::move(event));
+            m_queue.pop_front();
+
+            Display::Ui::Message message = {
+                {
+                    m_lastEvent->summary(16),
+                    "Event captured \4"
+                },
+                {
+                    "0.0s    00.0 KiB",
+                    fmt::format(
+                        "{:#02d}.{:#02d}.{:#04d} {:#02d}:{:#02d}",
+                        static_cast<int>(m_lastEvent->timestamp().date().day()),
+                        m_lastEvent->timestamp().date().month().as_number(),
+                        static_cast<int>(m_lastEvent->timestamp().date().year()),
+                        m_lastEvent->timestamp().time_of_day().hours(),
+                        m_lastEvent->timestamp().time_of_day().minutes()
+                    )
+                }
+            };
+
+            bool justGenerated = false;
+            if (m_queue.empty())
+            {
+                generateEvents(m_lastEvent->timestamp().date() + dt::days(1));
+                LogGenerationResult(m_lastGenerationResult);
+                justGenerated = true;
+
+                message.push_back({
+                    "Generated events",
+                    fmt::format("For {:>12}", fmt::format("[{}]", Utility::ToString(m_lastGenerationResult.date)))
+                });
+                message.push_back({
+                    fmt::format("Generated: {:>5}", Utility::Truncate(std::to_string(m_lastGenerationResult.generated), 5)),
+                    fmt::format("Mapped: {:>8}", Utility::Truncate(std::to_string(m_lastGenerationResult.mapped), 8))
+                });
+            }
+
+            if (m_queue.size() == 1)
+            {
+                toEvent = m_queue[0]->timestamp() - m_lastEvent->timestamp();
+                message.push_back({
+                    fmt::format("LAST {:>11}", fmt::format("in {:#02d}:{:#02d}", toEvent.hours(), toEvent.minutes())),
+                    m_queue[0]->summary(16)
+                });
+            }
+            else
+            {
+                if (!justGenerated)
+                {
+                    message.push_back({
+                        fmt::format("Events left: {:>3}", Utility::Truncate(std::to_string(m_queue.size()), 3)),
+                        fmt::format("For {:>12}", fmt::format("[{}]", Utility::ToString(m_lastGenerationResult.date)))
+                    });
+                }
+
+                toEvent = m_queue[0]->timestamp() - m_lastEvent->timestamp();
+                message.push_back({
+                    fmt::format("NEXT {:>11}", fmt::format("in {:#02d}:{:#02d}", toEvent.hours(), toEvent.minutes())),
+                    m_queue[0]->summary(16)
+                });
+                
+                toEvent = m_queue[1]->timestamp() - m_lastEvent->timestamp();
+                message.push_back({
+                    fmt::format("THEN {:>11}", fmt::format("in {:#02d}:{:#02d}", toEvent.hours(), toEvent.minutes())),
+                    m_queue[1]->summary(16)
+                });
+            }
+
+            m_displayUi->showMessage(message);
         }
     }
     catch (const std::exception& error)
     {
         m_logger.critical("Capture thread exception: \"{}\"", error.what());
         m_logger.critical("Capture thread is terminating");
+        m_displayUi->updateNextEvent(nullptr);
 
         std::lock_guard lock(m_mutex);
         m_threadStatus = ThreadStatus::Idle;
     }
+}
+
+bool Capture::Master::sleepToTimestamp(pt::ptime timestamp, bool subtractTimeReserve)
+{
+    std::unique_lock lock(m_mutex);
+    if (m_threadStatus == ThreadStatus::Stopped)
+        return false;
+
+    double sleepSeconds = (timestamp - pt::microsec_clock::local_time()).total_milliseconds() / 1000.0;
+    if (subtractTimeReserve)
+        sleepSeconds -= Config::Instance->timeReserve() / 1000.0;
+    return !(sleepSeconds > 0 && Utility::InterSleep(lock, m_cv, sleepSeconds));
 }
 
 size_t Capture::Master::capture(Event::Pointer&& event, bool expired)
@@ -214,10 +299,10 @@ size_t Capture::Master::capture(Event::Pointer&& event, bool expired)
     return eventsCaptured;
 }
 
-Capture::Master::GenerationResult Capture::Master::generateEvents(dt::date date)
+void Capture::Master::generateEvents(dt::date date)
 {
     // Clear queue and generate events
-    GenerationResult result = { date };
+    m_lastGenerationResult = { date, 0, 0, 0 };
     m_queue.clear();
     Event::Generate(date, m_queue);
 
@@ -232,9 +317,9 @@ Capture::Master::GenerationResult Capture::Master::generateEvents(dt::date date)
 
     // Erase already captured events
     std::erase_if(m_queue, [this](const Event::Pointer& event) { return event->timestamp() <= m_lastEvent->timestamp(); });
-    result.generated = m_queue.size();
-    if (result.generated == 0)
-        return result;
+    m_lastGenerationResult.generated = m_queue.size();
+    if (m_lastGenerationResult.generated == 0)
+        return;
 
     // Manage overlapped events
     for (size_t masterIndex = 0; masterIndex < m_queue.size() - 1; ++masterIndex)
@@ -251,7 +336,7 @@ Capture::Master::GenerationResult Capture::Master::generateEvents(dt::date date)
         {
             m_queue[slaveIndex - 1]->overlapping(std::move(m_queue[slaveIndex]));
             m_queue.erase(m_queue.begin() + slaveIndex);
-            ++result.mapped;
+            ++m_lastGenerationResult.mapped;
         }
     }
 
@@ -263,11 +348,9 @@ Capture::Master::GenerationResult Capture::Master::generateEvents(dt::date date)
         if (toEvent.total_milliseconds() > Config::Instance->timeReserve())
             break;
 
-        result.expired += capture(std::move(event), true);
+        m_lastGenerationResult.expired += capture(std::move(event), true);
         m_queue.pop_front();
     }
-
-    return result;
 }
 
 void Capture::Master::printQueue()
@@ -294,8 +377,9 @@ void Capture::Master::printQueue()
     fmt::print("{} event{}\n", eventCount, eventCount == 0 ? "" : "s");
 }
 
-Capture::Master::Master()
+Capture::Master::Master(Display::Ui::Pointer displayUi)
     : m_logger(Utility::CreateLogger("master"))
+    , m_displayUi(displayUi)
     , m_threadStatus(ThreadStatus::Idle)
 {}
 

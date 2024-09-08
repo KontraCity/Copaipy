@@ -78,6 +78,13 @@ namespace Utility
     /// @param timestamp The timestamp to convert
     /// @return Converted filename
     std::string ToFilename(pt::ptime timestamp);
+
+    /// @brief Truncate string
+    /// @param string The string to truncate
+    /// @param maxLength Maximum string length
+    /// @param end Whether to truncate at end or not (at start if false)
+    /// @return Truncated string
+    std::string Truncate(const std::string& string, size_t maxLength, bool end = true);
 }
 
 } // namespace kc

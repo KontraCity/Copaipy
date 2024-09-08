@@ -12,6 +12,7 @@
 #include "capture/event.hpp"
 #include "common/config.hpp"
 #include "common/utility.hpp"
+#include "display/ui.hpp"
 
 namespace kc {
 
@@ -62,6 +63,8 @@ namespace Capture
 
     private:
         spdlog::logger m_logger;
+        Display::Ui::Pointer m_displayUi;
+        GenerationResult m_lastGenerationResult;
         Event::Queue m_queue;
         Event::Pointer m_lastEvent;
 
@@ -74,6 +77,12 @@ namespace Capture
         /// @brief Capture thread implementation
         void captureFunction();
 
+        /// @brief Sleep to timestamp
+        /// @param timestamp The timestamp to sleep to
+        /// @param subtractTimeReserve Whether or not to subtract time reserve from sleep
+        /// @return True if thread was stopped or sleep was interrupted
+        bool sleepToTimestamp(pt::ptime timestamp, bool subtractTimeReserve = false);
+
         /// @brief Capture event(s)
         /// @param event The event to capture
         /// @param expired Whether to capture event as expired or not
@@ -83,15 +92,16 @@ namespace Capture
 
         /// @brief Generate events for date
         /// @param date The date to generate events for
-        GenerationResult generateEvents(dt::date date);
+        void generateEvents(dt::date date);
 
         /// @brief Print event queue
         void printQueue();
 
     public:
         /// @brief Initialize capture master
+        /// @param displayUi Initialized display UI
         /// @throw std::runtime_error if internal error occurs
-        Master();
+        Master(Display::Ui::Pointer displayUi);
 
         ~Master();
 
