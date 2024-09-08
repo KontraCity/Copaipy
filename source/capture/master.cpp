@@ -86,38 +86,40 @@ void Capture::Master::captureFunction()
         {
             m_logger.info("Creating capture filesystem");
             m_lastEvent = CreateCaptureFilesystem();
-            return;
+            generateEvents(m_lastEvent->timestamp().date());
         }
-
-        for (const std::string& task : Event::GetTasks())
+        else
         {
-            std::string eventDirectory = fmt::format("{}/{}", CaptureDirectory, task);
-            if (!std::filesystem::is_directory(eventDirectory))
+            for (const std::string& task : Event::GetTasks())
             {
-                throw std::runtime_error(fmt::format(
-                    "kc::Capture::Master::Master(): "
-                    "Couldn't find event directory \"{}/\"",
-                    eventDirectory
-                ));
+                std::string eventDirectory = fmt::format("{}/{}", CaptureDirectory, task);
+                if (!std::filesystem::is_directory(eventDirectory))
+                {
+                    throw std::runtime_error(fmt::format(
+                        "kc::Capture::Master::Master(): "
+                        "Couldn't find event directory \"{}/\"",
+                        eventDirectory
+                    ));
+                }
             }
-        }
-        m_lastEvent = std::make_unique<Event>(fmt::format("{}/{}", CaptureDirectory, LastEventFile));
+            m_lastEvent = std::make_unique<Event>(fmt::format("{}/{}", CaptureDirectory, LastEventFile));
 
-        for (dt::date date = m_lastEvent->timestamp().date(), today = dt::day_clock::local_day(); date <= today; date += dt::days(1))
-        {
-            generateEvents(date);
-            if (date == today)
+            for (dt::date date = m_lastEvent->timestamp().date(), today = dt::day_clock::local_day(); date <= today; date += dt::days(1))
             {
-                LogGenerationResult(m_lastGenerationResult);
-            }
-            else if (m_lastGenerationResult.expired)
-            {
-                m_logger.warn(
-                    "{} event{} expired for [{}]",
-                    m_lastGenerationResult.expired,
-                    m_lastGenerationResult.expired == 1 ? " is" : "s are",
-                    Utility::ToString(date)
-                );
+                generateEvents(date);
+                if (date == today)
+                {
+                    LogGenerationResult(m_lastGenerationResult);
+                }
+                else if (m_lastGenerationResult.expired)
+                {
+                    m_logger.warn(
+                        "{} event{} expired for [{}]",
+                        m_lastGenerationResult.expired,
+                        m_lastGenerationResult.expired == 1 ? " is" : "s are",
+                        Utility::ToString(date)
+                    );
+                }
             }
         }
 
