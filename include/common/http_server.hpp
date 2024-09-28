@@ -21,9 +21,9 @@
 // Custom modules
 #include "capture/master.hpp"
 #include "common/config.hpp"
-#include "common/sensors.hpp"
 #include "common/utility.hpp"
 #include "display/ui.hpp"
+#include "sensors/recorder.hpp"
 
 namespace kc {
 
@@ -83,6 +83,11 @@ private:
         /// @param location Sensors location
         /// @param indentation Response indentation
         void getSensors(Sensors::Location location, int indentation);
+
+        /// @brief Generate "/api/<location>/trend" resource GET response
+        /// @param location Sensors location
+        /// @param indentation Response indentation
+        void getTrend(Sensors::Location location, int indentation);
 
         /// @brief Generate "/api/display" resource GET response
         /// @param indentation Response indentation

@@ -41,6 +41,14 @@ namespace Utility
     /// @return True if the delay was interrupted
     bool InterSleep(std::unique_lock<std::mutex>& lock, std::condition_variable& cv, double seconds);
 
+    /// @brief Get time to next minute
+    /// @return Time to next minute
+    pt::time_duration TimeToNextMinute();
+
+    /// @brief Get time to next 30th second of minute
+    /// @return Time to next 30th second of minute
+    pt::time_duration TimeToNextHalfMinute();
+
     /// @brief Round value to decimal places
     /// @param value The value to round
     /// @param decimalPlacesCount Count of decimal places to round to
@@ -56,7 +64,12 @@ namespace Utility
 
     /// @brief Get local timezone offset in hours
     /// @return Local timezone offset in hours
-    int GetTimezoneOffset();
+    int TimezoneOffset();
+
+    /// @brief Get timestamp without seconds
+    /// @param timestamp The timestamp to get without seconds
+    /// @return Timestamp without seconds
+    pt::ptime TimestampWithoutSeconds(pt::ptime timestamp);
 
     /// @brief Convert date to string
     /// @param date The date to convert

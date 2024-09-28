@@ -2,18 +2,24 @@
 
 namespace kc {
 
-pt::time_duration Display::Ui::TimeToNextMinute()
+char Display::Ui::TrendSymbol(double trend)
 {
-    pt::ptime now = pt::microsec_clock::local_time();
-    pt::ptime nextMinute = now + pt::minutes(1);
-    return pt::ptime(nextMinute.date(), pt::time_duration(nextMinute.time_of_day().hours(), nextMinute.time_of_day().minutes(), 0)) - now;
+    if (trend > 1.0)
+        return '\6';
+    if (trend > 0.3)
+        return '\4';
+    if (trend >= -0.3)
+        return '-';
+    if (trend >= -1.0)
+        return '\5';
+    return '\7';
 }
 
 void Display::Ui::updateNextEventInfo(pt::ptime now)
 {
     if (!m_nextEvent)
     {
-        print(0, 11, "\3\3\6\3\3");
+        print(0, 11, "\3\3\3\3\3");
         return;
     }
 
@@ -22,7 +28,7 @@ void Display::Ui::updateNextEventInfo(pt::ptime now)
         secondsTo = 99 * 60;
 
     print(0, 11, fmt::format(
-        "{}\6{:0>2}",
+        "{}\3{:0>2}",
         m_nextEvent->shortName(),
         std::round(secondsTo / 60.0)
     ));
@@ -50,32 +56,37 @@ void Display::Ui::updateFunction()
                 now.time_of_day().minutes()
             ));
 
-            try
+            Sensors::Recorder::Record record = Sensors::Recorder::Instance->last();
+            Sensors::Recorder::Record trend = Sensors::Recorder::Instance->trend();
+
+            if (record.external)
             {
-                Sensors::Measurement externalMeasurement = Sensors::Measure(Sensors::Location::External);
-                externalMeasurement.aht20.humidity = Utility::Limit(externalMeasurement.aht20.humidity, 0, 99.9);
+                record.external->aht20.humidity = Utility::Limit(record.external->aht20.humidity, 0, 99.9);
                 print(0, 0, fmt::format(
-                    "{:>5.1f}|{:4.1f}|",
-                    externalMeasurement.bmp280.temperature,
-                    externalMeasurement.aht20.humidity
+                    "{:>5.1f}{}{:4.1f}{}",
+                    record.external->bmp280.temperature,
+                    trend.external ? TrendSymbol(trend.external->bmp280.temperature) : '\3',
+                    record.external->aht20.humidity,
+                    trend.external ? TrendSymbol(trend.external->aht20.humidity) : '\3'
                 ));
             }
-            catch (...)
+            else
             {
                 print(0, 0, "   FAIL   |");
             }
 
-            try
+            if (record.internal)
             {
-                Sensors::Measurement internalMeasurement = Sensors::Measure(Sensors::Location::Internal);
-                internalMeasurement.aht20.humidity = Utility::Limit(internalMeasurement.aht20.humidity, 0, 99.9);
+                record.internal->aht20.humidity = Utility::Limit(record.internal->aht20.humidity, 0, 99.9);
                 print(1, 0, fmt::format(
-                    "{:>5.1f}|{:4.1f}|",
-                    internalMeasurement.bmp280.temperature,
-                    internalMeasurement.aht20.humidity
+                    "{:>5.1f}{}{:4.1f}{}",
+                    record.internal->bmp280.temperature,
+                    trend.internal ? TrendSymbol(trend.internal->bmp280.temperature) : '\3',
+                    record.internal->aht20.humidity,
+                    trend.internal ? TrendSymbol(trend.internal->aht20.humidity) : '\3'
                 ));
             }
-            catch (...)
+            else
             {
                 print(1, 0, "   FAIL   |");
             }
@@ -84,7 +95,7 @@ void Display::Ui::updateFunction()
         lock.lock();
         if (m_updateThreadStatus == ThreadStatus::Stopped)
             return;
-        if (Utility::InterSleep(lock, m_cv, TimeToNextMinute().total_milliseconds() / 1000.0))
+        if (Utility::InterSleep(lock, m_cv, Utility::TimeToNextMinute().total_milliseconds() / 1000.0))
             return;
     }
 }
@@ -112,10 +123,18 @@ void Display::Ui::messageFunction()
                 break;
             message = std::move(m_queue[0]);
             m_queue.pop_front();
+
+            if (message.empty())
+            {
+                m_messageThreadStatus = ThreadStatus::Idle;
+                return;
+            }
         }
 
         backlight(false);
         clear();
+        print(0, 0, message[0].line1);
+        print(1, 0, message[0].line2);
         for (size_t index = 0, size = message.size(); index < size; ++index)
         {
             if (!backlight())

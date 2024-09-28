@@ -35,61 +35,74 @@ void HttpServer::Connection::methodNotAllowed()
 
 void HttpServer::Connection::getSensors(Sensors::Location location, int indentation)
 {
-    try
-    {
-        Sensors::Measurement measurement = Sensors::Measure(location);
-        
-        json aht20Object;
-        aht20Object["temperature"] = measurement.aht20.temperature;
-        aht20Object["humidity"] = measurement.aht20.humidity;
-
-        json bmp280Object;
-        bmp280Object["temperature"] = measurement.bmp280.temperature;
-        bmp280Object["pressure"] = measurement.bmp280.pressure;
-
-        json responseJson;
-        responseJson["_success"] = true;
-        responseJson["aht20"] = aht20Object;
-        responseJson["bmp280"] = bmp280Object;
-
-        m_response.result(beast::http::status::ok);
-        m_response.set(beast::http::field::content_type, "application/json");
-        beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
-        m_logger->info(m_logMessage("OK"));
-
-        m_displayUi->showMessage({
-            {            
-                location == Sensors::Location::External ? "Ext. measurement" : "Int. measurement",
-                fmt::format("\7{:>15}", m_socket.remote_endpoint().address().to_string())
-            },
-            {
-                "Successful     \4",
-                "\6         200 OK"
-            }
-        });
-    }
-    catch (const std::runtime_error& error)
+    Sensors::Recorder::Record record = Sensors::Recorder::Instance->last();
+    const auto& measurement = (location == Sensors::Location::Internal ? record.internal : record.external);
+    if (!measurement)
     {
         json responseJson;
         responseJson["_success"] = false;
-        responseJson["what"] = error.what();
+        responseJson["what"] = "Sorry, something went wrong: measurement couldn't be done.";
 
         m_response.result(beast::http::status::internal_server_error);
         m_response.set(beast::http::field::content_type, "application/json");
         beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
-        m_logger->error(m_logMessage(fmt::format("Internal Server Error: {}", error.what())));
-
-        m_displayUi->showMessage({
-            {
-                location == Sensors::Location::External ? "Ext. measurement" : "Int. measurement",
-                fmt::format("\7{:>15}", m_socket.remote_endpoint().address().to_string())
-            },
-            {
-                "Sensor error   \5",
-                "\6 500 Internal..", 1.0, 5
-            }
-        });
+        m_logger->error(m_logMessage("Internal Server Error"));
+        return;
     }
+
+    json aht20Object;
+    aht20Object["temperature"] = measurement->aht20.temperature;
+    aht20Object["humidity"] = measurement->aht20.humidity;
+
+    json bmp280Object;
+    bmp280Object["temperature"] = measurement->bmp280.temperature;
+    bmp280Object["pressure"] = measurement->bmp280.pressure;
+
+    json responseJson;
+    responseJson["_success"] = true;
+    responseJson["aht20"] = aht20Object;
+    responseJson["bmp280"] = bmp280Object;
+
+    m_response.result(beast::http::status::ok);
+    m_response.set(beast::http::field::content_type, "application/json");
+    beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+    m_logger->info(m_logMessage("OK"));
+}
+
+void HttpServer::Connection::getTrend(Sensors::Location location, int indentation)
+{
+    Sensors::Recorder::Record trend = Sensors::Recorder::Instance->trend();
+    const auto& measurement = (location == Sensors::Location::Internal ? trend.internal : trend.external);
+    if (!measurement)
+    {
+        json responseJson;
+        responseJson["_success"] = false;
+        responseJson["what"] = "Sorry, something went wrong: trend couldn't be calculated.";
+
+        m_response.result(beast::http::status::internal_server_error);
+        m_response.set(beast::http::field::content_type, "application/json");
+        beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+        m_logger->error(m_logMessage("Internal Server Error"));
+        return;
+    }
+
+    json aht20Object;
+    aht20Object["temperature"] = measurement->aht20.temperature;
+    aht20Object["humidity"] = measurement->aht20.humidity;
+
+    json bmp280Object;
+    bmp280Object["temperature"] = measurement->bmp280.temperature;
+    bmp280Object["pressure"] = measurement->bmp280.pressure;
+
+    json responseJson;
+    responseJson["_success"] = true;
+    responseJson["aht20"] = aht20Object;
+    responseJson["bmp280"] = bmp280Object;
+
+    m_response.result(beast::http::status::ok);
+    m_response.set(beast::http::field::content_type, "application/json");
+    beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+    m_logger->info(m_logMessage("OK"));
 }
 
 void HttpServer::Connection::getDisplay(int indentation)
@@ -203,10 +216,26 @@ void HttpServer::Connection::produceResponse()
             methodNotAllowed();
         return;
     }
+    else if (target.resource == "/api/external/trend")
+    {
+        if (m_request.method() == beast::http::verb::get)
+            getTrend(Sensors::Location::External, indentation);
+        else
+            methodNotAllowed();
+        return;
+    }
     else if (target.resource == "/api/internal")
     {
         if (m_request.method() == beast::http::verb::get)
             getSensors(Sensors::Location::Internal, indentation);
+        else
+            methodNotAllowed();
+        return;
+    }
+    else if (target.resource == "/api/internal/trend")
+    {
+        if (m_request.method() == beast::http::verb::get)
+            getTrend(Sensors::Location::Internal, indentation);
         else
             methodNotAllowed();
         return;

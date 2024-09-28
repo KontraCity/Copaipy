@@ -18,8 +18,9 @@
 // Custom modules
 #include "capture/event.hpp"
 #include "common/config.hpp"
-#include "common/sensors.hpp"
+#include "common/utility.hpp"
 #include "display/master.hpp"
+#include "sensors/recorder.hpp"
 
 namespace kc {
 
@@ -54,9 +55,10 @@ namespace Display
         };
 
     private:
-        /// @brief Get time to next minute
-        /// @return Time to next minute
-        static pt::time_duration TimeToNextMinute();
+        /// @brief Get change trend symbol
+        /// @param trend The change trend to get symbol for
+        /// @return Change trend symbol
+        char TrendSymbol(double trend);
 
     private:
         std::deque<Message> m_queue;

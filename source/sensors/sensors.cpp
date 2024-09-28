@@ -1,10 +1,81 @@
-#include "common/sensors.hpp"
+#include "sensors/sensors.hpp"
 
 namespace kc {
 
+Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator-=(const Aht20Measurement& other)
+{
+    temperature -= other.temperature;
+    humidity -= other.humidity;
+    return *this;
+}
+
+Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator+=(const Aht20Measurement& other)
+{
+    temperature += other.temperature;
+    humidity += other.humidity;
+    return *this;
+}
+
+Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator/=(double number)
+{
+    temperature /= number;
+    humidity /= number;
+    return *this;
+}
+
+Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator-=(const Bmp280Measurement& other)
+{
+    temperature -= other.temperature;
+    pressure -= other.pressure;
+    return *this;
+}
+
+Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator+=(const Bmp280Measurement& other)
+{
+    temperature += other.temperature;
+    pressure += other.pressure;
+    return *this;
+}
+
+Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator/=(double number)
+{
+    temperature /= number;
+    pressure /= number;
+    return *this;
+}
+
+void Sensors::Measurement::round()
+{
+    aht20.temperature = Utility::Round(aht20.temperature, Precision);
+    aht20.humidity = Utility::Round(aht20.humidity, Precision);
+    bmp280.temperature = Utility::Round(bmp280.temperature, Precision);
+    bmp280.pressure = Utility::Round(bmp280.pressure, Precision);
+}
+
+Sensors::Measurement& Sensors::Measurement::operator-=(const Measurement& other)
+{
+    aht20 -= other.aht20;
+    bmp280 -= other.bmp280;
+    return *this;
+}
+
+Sensors::Measurement& Sensors::Measurement::operator+=(const Measurement& other)
+{
+    aht20 += other.aht20;
+    bmp280 += other.bmp280;
+    return *this;
+}
+
+Sensors::Measurement& Sensors::Measurement::operator/=(double number)
+{
+    aht20 /= number;
+    bmp280 /= number;
+    return *this;
+}
+
 /// @brief Perform AHT20 sensor measurement
 /// @param device I2C AHT20 device to measure
-/// @return Sensor measurement
+/// @return AHT20 sensor measurement
 static Sensors::Aht20Measurement MeasureAht20(I2C::Device& device)
 {
     device.send({ 0xAC, 0x33, 0x00 });
@@ -12,14 +83,14 @@ static Sensors::Aht20Measurement MeasureAht20(I2C::Device& device)
 
     std::vector<uint8_t> response = device.receive(7);
     return {
-        Utility::Round((((response[3] & 0b0000'1111) << 16) | (response[4] << 8) | response[5]) / std::pow(2, 20) * 200 - 50, 2),
-        Utility::Round(((response[1] << 12) | (response[2] << 4) | ((response[3] & 0b1111'0000) >> 4)) / std::pow(2, 20) * 100, 2)
+        (((response[3] & 0b0000'1111) << 16) | (response[4] << 8) | response[5]) / std::pow(2, 20) * 200 - 50,
+        ((response[1] << 12) | (response[2] << 4) | ((response[3] & 0b1111'0000) >> 4)) / std::pow(2, 20) * 100
     };
 }
 
 /// @brief Perform BMP280 sensor measurement
 /// @param device I2C BMP280 device to measure
-/// @return Sensor measurement
+/// @return BMP280 sensor measurement
 static Sensors::Bmp280Measurement MeasureBmp280(I2C::Device& device)
 {
     device.send({ 0xF4, 0b111'010'01 });
@@ -60,12 +131,9 @@ static Sensors::Bmp280Measurement MeasureBmp280(I2C::Device& device)
     return { Utility::Round(fineTemperature / 5120.0, 2), Utility::Round(pressure / 100.0, 2) };
 }
 
-Sensors::Measurement Sensors::Measure(Location location)
+Sensors::Measurement Sensors::Measure(Location location, int iterations)
 {
 #ifdef __unix__
-    static std::mutex mutex;
-    std::lock_guard lock(mutex);
-
     static I2C::Device externalAht20(Config::Instance->externalPort(), 0x38);
     static I2C::Device externalBmp280(Config::Instance->externalPort(), 0x77);
     static I2C::Device internalAht20(Config::Instance->internalPort(), 0x38);
@@ -86,16 +154,23 @@ Sensors::Measurement Sensors::Measure(Location location)
         initialized = true;
     }
 
-    switch (location)
+    if (iterations < 1)
+        iterations = 1;
+
+    Measurement measurement = {};
+    for (int iteration = 0; iteration < iterations; ++iteration)
     {
-        default:
-        case Location::External:
-            return { MeasureAht20(externalAht20), MeasureBmp280(externalBmp280) };
-        case Location::Internal:
-            return { MeasureAht20(internalAht20), MeasureBmp280(internalBmp280) };
+        if (location == Location::Internal)
+            measurement += { MeasureAht20(internalAht20), MeasureBmp280(internalBmp280) };
+        else
+            measurement += { MeasureAht20(externalAht20), MeasureBmp280(externalBmp280) };
     }
+
+    measurement /= iterations;
+    measurement.round();
+    return measurement;
 #else
-    return { { 0.0, 0.0 }, { 0.0, 0.0 } };
+    return {};
 #endif
 }
 

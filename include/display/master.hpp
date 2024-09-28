@@ -51,9 +51,9 @@ namespace Display
         {
             HappyFace = 1,
             SadFace,
-			UndefinedDot,
-            CheckMark,
-            Cross,
+            UndefinedDot,
+            Up,
+            Down,
             UpArrow,
             DownArrow,
         };
@@ -61,7 +61,7 @@ namespace Display
     private:
         int m_row;
         int m_column;
-		bool m_backlight;
+        bool m_backlight;
         Screen m_screen;
 
     private:
@@ -78,85 +78,85 @@ namespace Display
         void initCustomCharacters();
 
     public:
-		/// @brief Initialize the display
-		/// @param port I2C port the display is attached to
-		/// @param backlight Whether to enable display's backlight or not
-		Master(const std::string& port, bool backlight);
+        /// @brief Initialize the display
+        /// @param port I2C port the display is attached to
+        /// @param backlight Whether to enable display's backlight or not
+        Master(const std::string& port, bool backlight);
 
-		~Master();
+        ~Master();
 
-		/// @brief Get cursor's position row
-		/// @return Cursor's position row
-		inline int row() const
-		{
-			return m_row;
-		}
+        /// @brief Get cursor's position row
+        /// @return Cursor's position row
+        inline int row() const
+        {
+            return m_row;
+        }
 
-		/// @brief Get cursor's position column
-		/// @return Cursor's position column
-		inline int column() const
-		{
-			return m_column;
-		}
+        /// @brief Get cursor's position column
+        /// @return Cursor's position column
+        inline int column() const
+        {
+            return m_column;
+        }
 
-		/// @brief Check if display's backlight is on
-		/// @return True if display's backlight is on
-		inline bool backlight() const
-		{
-			return m_backlight;
-		}
+        /// @brief Check if display's backlight is on
+        /// @return True if display's backlight is on
+        inline bool backlight() const
+        {
+            return m_backlight;
+        }
 
-		/// @brief Get what's shown on the display
-		/// @return What's shown on the display
-		inline Screen screen() const
-		{
-			return m_screen;
-		}
+        /// @brief Get what's shown on the display
+        /// @return What's shown on the display
+        inline Screen screen() const
+        {
+            return m_screen;
+        }
 
-		/// @brief Configure display
-		/// @param on Whether the display should be on or not
-		/// @param showCursor Whether the display should show cursor or not
-		/// @param showBlinkingBlock Whether the display should show blinking block or not
-		void configure(bool on, bool showCursor, bool showBlinkingBlock);
+        /// @brief Configure display
+        /// @param on Whether the display should be on or not
+        /// @param showCursor Whether the display should show cursor or not
+        /// @param showBlinkingBlock Whether the display should show blinking block or not
+        void configure(bool on, bool showCursor, bool showBlinkingBlock);
 
-		/// @brief Configure display backlight
-		/// @param enabled Whether the backlight should be enabled or not
-		void backlight(bool enabled);
+        /// @brief Configure display backlight
+        /// @param enabled Whether the backlight should be enabled or not
+        void backlight(bool enabled);
 
-		/// @brief Clear display's screen and return cursor home
-		void clear();
+        /// @brief Clear display's screen and return cursor home
+        void clear();
 
-		/// @brief Return cursor home
-		void home();
+        /// @brief Return cursor home
+        void home();
 
-		/// @brief Set cursor position
-		/// @param row Position row
-		/// @param column Position column
-		void position(int row, int column);
+        /// @brief Set cursor position
+        /// @param row Position row
+        /// @param column Position column
+        void position(int row, int column);
 
-		/// @brief Print character
-		/// @param character The character to print
-		void print(char character);
+        /// @brief Print character
+        /// @param character The character to print
+        void print(char character);
 
-		/// @brief Print character at position
-		/// @param row Position row
-		/// @param column Position column
-		/// @param character The character to print
-		void print(int row, int column, char character);
+        /// @brief Print character at position
+        /// @param row Position row
+        /// @param column Position column
+        /// @param character The character to print
+        void print(int row, int column, char character);
 
-		/// @brief Print string
-		/// @param string The string to print
-		void print(const std::string& string);
+        /// @brief Print string
+        /// @param string The string to print
+        void print(const std::string& string);
 
-		/// @brief Print string at position
-		/// @param row Position row
-		/// @param column Position column
-		/// @param string The string to print
-		void print(int row, int column, const std::string& string);
+        /// @brief Print string at position
+        /// @param row Position row
+        /// @param column Position column
+        /// @param string The string to print
+        void print(int row, int column, const std::string& string);
 
-		/// @brief Print screen
-		/// @param screen The screen to print
-		void print(const Screen& screen);
+        /// @brief Print screen
+        /// @param screen The screen to print
+        void print(const Screen& screen);
     };
 }
 

@@ -29,6 +29,21 @@ bool Utility::InterSleep(std::unique_lock<std::mutex>& lock, std::condition_vari
     return result == std::cv_status::no_timeout;
 }
 
+pt::time_duration Utility::TimeToNextMinute()
+{
+    pt::ptime now = pt::microsec_clock::local_time();
+    pt::ptime nextMinute = now + pt::minutes(1);
+    return TimestampWithoutSeconds(nextMinute) - now;
+}
+
+pt::time_duration Utility::TimeToNextHalfMinute()
+{
+    pt::time_duration result = TimeToNextMinute() + pt::seconds(30);
+    if (result.total_seconds() > 60)
+        result -= pt::minutes(1);
+    return result;
+}
+
 double Utility::Round(double value, int decimalPlacesCount)
 {
     double multiplier = std::pow(10, decimalPlacesCount);
@@ -45,11 +60,16 @@ double Utility::Limit(double value, double min, double max)
     return value;
 }
 
-int Utility::GetTimezoneOffset()
+int Utility::TimezoneOffset()
 {
     pt::ptime localTime = pt::second_clock::local_time();
     pt::ptime universalTime = pt::second_clock::universal_time();
     return static_cast<int>(std::round((localTime - universalTime).total_seconds() / 3600.0));
+}
+
+pt::ptime Utility::TimestampWithoutSeconds(pt::ptime timestamp)
+{
+    return { timestamp.date(), pt::time_duration(timestamp.time_of_day().hours(), timestamp.time_of_day().minutes(), 0) };
 }
 
 std::string Utility::ToString(dt::date date)

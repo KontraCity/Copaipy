@@ -168,7 +168,7 @@ static pt::ptime CalculateSunEventTimestamp(dt::date date, double angle, bool su
     double sunriseJulianCenturies = CalculateJulianCenturies(julianDate + timeMinutes / 1440.0);
     sunriseHourAngle = CalculateSunEventHourAngle(Config::Instance->latitude(), CalculateSolarDeclination(sunriseJulianCenturies), angle, sunrise);
     timeMinutes = 720 - 4 * (Config::Instance->longitude() + RadiansToDegrees(sunriseHourAngle)) - CalculateEquationOfTime(sunriseJulianCenturies);
-    return pt::ptime(date, pt::time_duration(Utility::GetTimezoneOffset(), 0, static_cast<int>(std::round(timeMinutes * 60.0))));
+    return pt::ptime(date, pt::time_duration(Utility::TimezoneOffset(), 0, static_cast<int>(std::round(timeMinutes * 60.0))));
 }
 
 pt::ptime Astronomy::CalculateSunrise(dt::date date)

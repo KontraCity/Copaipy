@@ -181,7 +181,7 @@ void Capture::Master::captureFunction()
             Display::Ui::Message message = {
                 {
                     m_lastEvent->summary(16),
-                    "Event captured \4"
+                    "Event captured \1"
                 },
                 {
                     "0.0s    00.0 KiB",
