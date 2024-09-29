@@ -89,6 +89,11 @@ private:
         /// @param indentation Response indentation
         void getTrend(Sensors::Location location, int indentation);
 
+        /// @brief Generate "/api/<location>/history" resource GET response
+        /// @param location Sensors location
+        /// @param indentation Response indentation
+        void getHistory(Sensors::Location location, int indentation);
+
         /// @brief Generate "/api/display" resource GET response
         /// @param indentation Response indentation
         void getDisplay(int indentation);

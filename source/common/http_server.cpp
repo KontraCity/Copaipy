@@ -105,6 +105,48 @@ void HttpServer::Connection::getTrend(Sensors::Location location, int indentatio
     m_logger->info(m_logMessage("OK"));
 }
 
+void HttpServer::Connection::getHistory(Sensors::Location location, int indentation)
+{
+    json historyObject;
+    for (const auto& record : Sensors::Recorder::Instance->history())
+    {
+        const auto& measurement = (location == Sensors::Location::Internal ? record.internal : record.external);
+        if (!measurement)
+        {
+            json recordObject;
+            recordObject["_success"] = false;
+            recordObject["timestamp"] = Utility::ToUnixTimestamp(record.timestamp);
+            recordObject["what"] = "Sorry, something went wrong: measurement couldn't be done.";
+            historyObject.push_back(recordObject);
+            continue;
+        }
+
+        json aht20Object;
+        aht20Object["temperature"] = measurement->aht20.temperature;
+        aht20Object["humidity"] = measurement->aht20.humidity;
+
+        json bmp280Object;
+        bmp280Object["temperature"] = measurement->bmp280.temperature;
+        bmp280Object["pressure"] = measurement->bmp280.pressure;
+
+        json recordObject;
+        recordObject["_success"] = true;
+        recordObject["timestamp"] = Utility::ToUnixTimestamp(record.timestamp);
+        recordObject["aht20"] = aht20Object;
+        recordObject["bmp280"] = bmp280Object;
+        historyObject.push_back(recordObject);
+    }
+
+    json responseJson;
+    responseJson["_success"] = true;
+    responseJson["history"] = historyObject;
+
+    m_response.result(beast::http::status::ok);
+    m_response.set(beast::http::field::content_type, "application/json");
+    beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+    m_logger->info(m_logMessage("OK"));
+}
+
 void HttpServer::Connection::getDisplay(int indentation)
 {
     json displayObject;
@@ -224,6 +266,14 @@ void HttpServer::Connection::produceResponse()
             methodNotAllowed();
         return;
     }
+    else if (target.resource == "/api/external/history")
+    {
+        if (m_request.method() == beast::http::verb::get)
+            getHistory(Sensors::Location::External, indentation);
+        else
+            methodNotAllowed();
+        return;
+    }
     else if (target.resource == "/api/internal")
     {
         if (m_request.method() == beast::http::verb::get)
@@ -236,6 +286,14 @@ void HttpServer::Connection::produceResponse()
     {
         if (m_request.method() == beast::http::verb::get)
             getTrend(Sensors::Location::Internal, indentation);
+        else
+            methodNotAllowed();
+        return;
+    }
+    else if (target.resource == "/api/internal/history")
+    {
+        if (m_request.method() == beast::http::verb::get)
+            getHistory(Sensors::Location::Internal, indentation);
         else
             methodNotAllowed();
         return;

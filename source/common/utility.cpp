@@ -72,6 +72,12 @@ pt::ptime Utility::TimestampWithoutSeconds(pt::ptime timestamp)
     return { timestamp.date(), pt::time_duration(timestamp.time_of_day().hours(), timestamp.time_of_day().minutes(), 0) };
 }
 
+int Utility::ToUnixTimestamp(pt::ptime timestamp)
+{
+    constexpr pt::ptime epoch(dt::date(1970, 1, 1));
+    return static_cast<int>((timestamp - epoch).total_seconds());
+}
+
 std::string Utility::ToString(dt::date date)
 {
     return fmt::format(
@@ -106,7 +112,7 @@ std::string Utility::ToFilename(pt::ptime timestamp)
         timestamp.time_of_day().seconds()
     );
 
-    int milliseconds = timestamp.time_of_day().fractional_seconds() / 1000;
+    int milliseconds = static_cast<int>(timestamp.time_of_day().fractional_seconds() / 1000.0);
     if (milliseconds)
         result += fmt::format(".{:#03d}", milliseconds);
     return result;

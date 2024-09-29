@@ -71,6 +71,10 @@ namespace Utility
     /// @return Timestamp without seconds
     pt::ptime TimestampWithoutSeconds(pt::ptime timestamp);
 
+    /// @brief Convert ptime timestamp to Unix timestamp
+    /// @return Converted Unix timestamp
+    int ToUnixTimestamp(pt::ptime timestamp);
+
     /// @brief Convert date to string
     /// @param date The date to convert
     /// @return Converted string

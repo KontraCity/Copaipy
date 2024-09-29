@@ -123,7 +123,7 @@ Sensors::Recorder::Record Sensors::Recorder::trend(int interval)
     std::unique_lock lock(m_mutex);
     awaitHistory(lock);
     if (interval >= m_history.size())
-        interval = m_history.size() - 1;
+        interval = static_cast<int>(m_history.size()) - 1;
 
     const auto& current = m_history.end() - 1;
     const auto& previous = current - interval;
