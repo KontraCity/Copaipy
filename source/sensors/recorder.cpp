@@ -82,7 +82,10 @@ void Sensors::Recorder::recordFunction()
         
         if (m_threadStatus == ThreadStatus::Stopped)
             return;
-        if (Utility::InterSleep(lock, m_cv, Utility::TimeToNextHalfMinute().total_milliseconds() / 1000.0))
+        pt::time_duration toNextHalfMinute = Utility::TimeToNextHalfMinute();
+        if (toNextHalfMinute.total_seconds() <= 30)
+            toNextHalfMinute += pt::minutes(1);
+        if (Utility::InterSleep(lock, m_cv, toNextHalfMinute.total_milliseconds() / 1000.0))
             return;
     }
 }
@@ -130,20 +133,11 @@ Sensors::Recorder::Record Sensors::Recorder::trend(int interval)
     return *current - *previous;
 }
 
-Sensors::Recorder::History Sensors::Recorder::history()
+Sensors::Recorder::HistoryHandle Sensors::Recorder::historyHandle()
 {
     std::unique_lock lock(m_mutex);
     awaitHistory(lock);
-    return m_history;
-}
-
-Sensors::Recorder::History Sensors::Recorder::history(int count)
-{
-    std::unique_lock lock(m_mutex);
-    awaitHistory(lock);
-    if (count >= m_history.size())
-        return m_history;
-    return { m_history.begin() + m_history.size() - count, m_history.end() };
+    return { std::move(lock), m_history };
 }
 
 } // namespace kc

@@ -17,6 +17,49 @@ HttpServer::Connection::Target HttpServer::Connection::ParseTarget(const std::st
     return { target.substr(0, queryStartPosition), std::string(target.begin() + queryStartPosition + 1, target.end()) };
 }
 
+int HttpServer::Connection::GetItemsCount(const std::string& query)
+{
+    boost::smatch matches;
+    if (!boost::regex_search(query, matches, boost::regex(R"(count=(\d+))")))
+        return -1;
+
+    try
+    {
+        int count = std::stoi(matches.str(1));
+        if (count <= 0)
+            return -1;
+        return count;
+    }
+    catch (...)
+    {
+        // Number is too big or to small
+        return -1;
+    }
+}
+
+HttpServer::Connection::HistoryFields HttpServer::Connection::GetHistoryFields(const std::string& query)
+{
+    boost::smatch matches;
+    if (!boost::regex_search(query, matches, boost::regex(R"(fields=["']?([\w|]+)["']?)")))
+        return {};
+
+    HistoryFields fields = { false, false, false, false };
+    std::stringstream stream(matches.str(1));
+    std::string string;
+    while (std::getline(stream, string, '|'))
+    {
+        if (string == "temperature")
+            fields.temperature = true;
+        if (string == "alternative")
+            fields.alternative = true;
+        if (string == "humidity")
+            fields.humidity = true;
+        if (string == "pressure")
+            fields.pressure = true;
+    }
+    return fields;
+}
+
 void HttpServer::Connection::notFound()
 {
     m_response.result(beast::http::status::not_found);
@@ -105,45 +148,54 @@ void HttpServer::Connection::getTrend(Sensors::Location location, int indentatio
     m_logger->info(m_logMessage("OK"));
 }
 
-void HttpServer::Connection::getHistory(Sensors::Location location, int indentation)
+void HttpServer::Connection::getHistory(Sensors::Location location, int itemsCount, HistoryFields fields)
 {
-    json historyObject;
-    for (const auto& record : Sensors::Recorder::Instance->history())
+    std::string response = "Timestamp";
+    if (fields.temperature)
+        response += ";Temperature";
+    if (fields.alternative)
+        response += ";Alternative";
+    if (fields.humidity)
+        response += ";Humidity";
+    if (fields.pressure)
+        response += ";Pressure";
+    response += '\n';
+
+    Sensors::Recorder::HistoryHandle handle = Sensors::Recorder::Instance->historyHandle();
+    Sensors::Recorder::History::const_iterator iterator = (itemsCount == -1 || itemsCount > handle.history.size() ? handle.history.begin() : handle.history.end() - itemsCount);
+    for (Sensors::Recorder::History::const_iterator end = handle.history.end(); iterator != end; ++iterator)
     {
-        const auto& measurement = (location == Sensors::Location::Internal ? record.internal : record.external);
+        const auto& measurement = (location == Sensors::Location::Internal ? iterator->internal : iterator->external);
         if (!measurement)
         {
-            json recordObject;
-            recordObject["_success"] = false;
-            recordObject["timestamp"] = Utility::ToUnixTimestamp(record.timestamp);
-            recordObject["what"] = "Sorry, something went wrong: measurement couldn't be done.";
-            historyObject.push_back(recordObject);
+            response += std::to_string(Utility::ToUnixTimestamp(iterator->timestamp));
+            if (fields.temperature)
+                response += ';';
+            if (fields.alternative)
+                response += ';';
+            if (fields.humidity)
+                response += ';';
+            if (fields.pressure)
+                response += ';';
+            response += '\n';
             continue;
         }
-
-        json aht20Object;
-        aht20Object["temperature"] = measurement->aht20.temperature;
-        aht20Object["humidity"] = measurement->aht20.humidity;
-
-        json bmp280Object;
-        bmp280Object["temperature"] = measurement->bmp280.temperature;
-        bmp280Object["pressure"] = measurement->bmp280.pressure;
-
-        json recordObject;
-        recordObject["_success"] = true;
-        recordObject["timestamp"] = Utility::ToUnixTimestamp(record.timestamp);
-        recordObject["aht20"] = aht20Object;
-        recordObject["bmp280"] = bmp280Object;
-        historyObject.push_back(recordObject);
+        
+        response += std::to_string(Utility::ToUnixTimestamp(iterator->timestamp));
+        if (fields.temperature)
+            response += fmt::format(";{:.2f}", measurement->bmp280.temperature);
+        if (fields.alternative)
+            response += fmt::format(";{:.2f}", measurement->aht20.temperature);
+        if (fields.humidity)
+            response += fmt::format(";{:.2f}", measurement->aht20.humidity);
+        if (fields.pressure)
+            response += fmt::format(";{:.2f}", measurement->bmp280.pressure);
+        response += '\n';
     }
 
-    json responseJson;
-    responseJson["_success"] = true;
-    responseJson["history"] = historyObject;
-
     m_response.result(beast::http::status::ok);
-    m_response.set(beast::http::field::content_type, "application/json");
-    beast::ostream(m_response.body()) << responseJson.dump(indentation) << '\n';
+    m_response.set(beast::http::field::content_type, "text/csv");
+    beast::ostream(m_response.body()) << response;
     m_logger->info(m_logMessage("OK"));
 }
 
@@ -269,7 +321,7 @@ void HttpServer::Connection::produceResponse()
     else if (target.resource == "/api/external/history")
     {
         if (m_request.method() == beast::http::verb::get)
-            getHistory(Sensors::Location::External, indentation);
+            getHistory(Sensors::Location::External, GetItemsCount(target.query), GetHistoryFields(target.query));
         else
             methodNotAllowed();
         return;
@@ -293,7 +345,7 @@ void HttpServer::Connection::produceResponse()
     else if (target.resource == "/api/internal/history")
     {
         if (m_request.method() == beast::http::verb::get)
-            getHistory(Sensors::Location::Internal, indentation);
+            getHistory(Sensors::Location::Internal, GetItemsCount(target.query), GetHistoryFields(target.query));
         else
             methodNotAllowed();
         return;

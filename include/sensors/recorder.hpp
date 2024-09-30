@@ -60,6 +60,12 @@ namespace Sensors
         // Measurement history
         using History = std::deque<Record>;
 
+        struct HistoryHandle
+        {
+            std::unique_lock<std::mutex> lock;
+            const History& history;
+        };
+
     private:
         enum class ThreadStatus
         {
@@ -104,14 +110,9 @@ namespace Sensors
         /// @return Change trend for an interval
         Record trend(int interval = 60);
 
-        /// @brief Get whole recorder history
-        /// @return Whole recorder history
-        History history();
-
-        /// @brief Get recorder history
-        /// @param count Amount of records to get
-        /// @return Recorder history
-        History history(int count);
+        /// @brief Get recorder history handle
+        /// @return Recorder history handle
+        HistoryHandle historyHandle();
     };
 }
 

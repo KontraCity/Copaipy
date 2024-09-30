@@ -2,6 +2,7 @@
 
 // STL modules
 #include <memory>
+#include <sstream>
 #include <chrono>
 #include <functional>
 
@@ -11,6 +12,7 @@
 #include <boost/beast/http.hpp>
 #include <boost/asio.hpp>
 #include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/regex.hpp>
 
 // Library nlohmann::json
 #include <nlohmann/json.hpp>
@@ -50,16 +52,34 @@ private:
             std::string query;
         };
 
+        struct HistoryFields
+        {
+            bool temperature = true;
+            bool alternative = true;
+            bool humidity = true;
+            bool pressure = true;
+        };
+
     private:
+        /// @brief Parse target resource and query
+        /// @param target Target string to parse
+        /// @return Parsed target
+        static Target ParseTarget(const std::string& target);
+
         /// @brief Deduce response indentation from request query
         /// @param query Request query
         /// @return Response indentation
         static int GetIndentation(const std::string& query);
 
-        /// @brief Parse target resource and query
-        /// @param target Target string to parse
-        /// @return Parsed target
-        static Target ParseTarget(const std::string& target);
+        /// @brief Deduce response items count from request query
+        /// @param query Request query
+        /// @return Response items count (-1 if not found)
+        static int GetItemsCount(const std::string& query);
+
+        /// @brief Deduce history response fields from request query
+        /// @param query Request query
+        /// @return History response fields
+        static HistoryFields GetHistoryFields(const std::string& query);
 
     private:
         Logger m_logger;
@@ -91,8 +111,9 @@ private:
 
         /// @brief Generate "/api/<location>/history" resource GET response
         /// @param location Sensors location
-        /// @param indentation Response indentation
-        void getHistory(Sensors::Location location, int indentation);
+        /// @param fields History fields to show
+        /// @param itemsCount Count of records to show
+        void getHistory(Sensors::Location location, int itemsCount, HistoryFields fields);
 
         /// @brief Generate "/api/display" resource GET response
         /// @param indentation Response indentation
