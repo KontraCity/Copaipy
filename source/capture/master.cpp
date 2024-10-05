@@ -152,6 +152,7 @@ void Capture::Master::captureFunction()
             }
 
             /* Preparation for capture */
+            m_camera.turnOn();
 
             if (!sleepToTimestamp(event->timestamp()))
             {
@@ -175,7 +176,9 @@ void Capture::Master::captureFunction()
                 );
             }
 
-            capture(std::move(event));
+            /* The capture */
+            CaptureResult result = capture(std::move(event));
+            m_camera.turnOff();
             m_queue.pop_front();
 
             Display::Ui::Message message = {
@@ -184,7 +187,11 @@ void Capture::Master::captureFunction()
                     "Event captured \1"
                 },
                 {
-                    "0.0s    00.0 KiB",
+                    fmt::format(
+                        "{}{:>12}",
+                        fmt::format("{:3.1f}s", result.timeElapsed / 1000.0),
+                        Utility::ToReadableSize(result.savedSize)
+                    ),
                     fmt::format(
                         "{:#02d}.{:#02d}.{:#04d} {:#02d}:{:#02d}",
                         static_cast<int>(m_lastEvent->timestamp().date().day()),
@@ -205,7 +212,7 @@ void Capture::Master::captureFunction()
 
                 message.push_back({
                     "Generated events",
-                    fmt::format("For {:>12}", fmt::format("[{}]", Utility::ToString(m_lastGenerationResult.date)))
+                    fmt::format("for     {}", Utility::ToString(m_lastGenerationResult.date))
                 });
                 message.push_back({
                     fmt::format("Generated: {:>5}", Utility::Truncate(std::to_string(m_lastGenerationResult.generated), 5)),
@@ -226,20 +233,20 @@ void Capture::Master::captureFunction()
                 if (!justGenerated)
                 {
                     message.push_back({
-                        fmt::format("Events left: {:>3}", Utility::Truncate(std::to_string(m_queue.size()), 3)),
-                        fmt::format("For {:>12}", fmt::format("[{}]", Utility::ToString(m_lastGenerationResult.date)))
+                        "Events left for",
+                        fmt::format("{}:{:>7}", Utility::ToString(m_lastGenerationResult.date), m_queue.size())
                     });
                 }
 
                 toEvent = m_queue[0]->timestamp() - m_lastEvent->timestamp();
                 message.push_back({
-                    fmt::format("NEXT {:>11}", fmt::format("in {:#02d}:{:#02d}", toEvent.hours(), toEvent.minutes())),
+                    fmt::format("NEXT   in  {:#02d}:{:#02d}", toEvent.hours(), toEvent.minutes()),
                     m_queue[0]->summary(16)
                 });
-                
+
                 toEvent = m_queue[1]->timestamp() - m_lastEvent->timestamp();
                 message.push_back({
-                    fmt::format("THEN {:>11}", fmt::format("in {:#02d}:{:#02d}", toEvent.hours(), toEvent.minutes())),
+                    fmt::format("THEN   in  {:#02d}:{:#02d}", toEvent.hours(), toEvent.minutes()),
                     m_queue[1]->summary(16)
                 });
             }
@@ -270,35 +277,43 @@ bool Capture::Master::sleepToTimestamp(pt::ptime timestamp, bool subtractTimeRes
     return !(sleepSeconds > 0 && Utility::InterSleep(lock, m_cv, sleepSeconds));
 }
 
-size_t Capture::Master::capture(Event::Pointer&& event, bool expired)
+Capture::Master::CaptureResult Capture::Master::capture(Event::Pointer&& event, bool expired)
 {
-    size_t eventsCaptured = 0;
-    if (!expired)
+    CaptureResult result = {};
+    Stopwatch stopwatch;
+    Camera::Image image = expired ? Camera::Image() : m_camera.capture();
+    for (Event* captureEvent = event.get(); captureEvent; captureEvent = captureEvent->overlapping().get())
     {
-        for (Event* captureEvent = event.get(); captureEvent; captureEvent = captureEvent->overlapping().get())
+        std::string filePath;
+        if (expired)
         {
-            /* Event capture */
-            ++eventsCaptured;
-        }
-    }
-    else
-    {
-        for (Event* captureEvent = event.get(); captureEvent; captureEvent = captureEvent->overlapping().get())
-        {
-            std::string eventPath = fmt::format(
+            filePath = fmt::format(
                 "{}/{}/{}.event",
                 CaptureDirectory,
                 captureEvent->name(),
                 Utility::ToFilename(captureEvent->timestamp())
             );
-            captureEvent->save(eventPath);
-            ++eventsCaptured;
+            captureEvent->save(filePath);
         }
+        else
+        {
+            filePath = fmt::format(
+                "{}/{}/{}.jpeg",
+                CaptureDirectory,
+                captureEvent->name(),
+                Utility::ToFilename(captureEvent->timestamp())
+            );
+            image.save_jpeg(filePath.c_str());
+        }
+        
+        result.savedSize += std::filesystem::file_size(filePath);
+        result.eventsCaptured += 1;
     }
+    result.timeElapsed = stopwatch.elapsed<Stopwatch::Milliseconds>();
 
     m_lastEvent = std::move(event);
     m_lastEvent->save(fmt::format("{}/{}", CaptureDirectory, LastEventFile));
-    return eventsCaptured;
+    return result;
 }
 
 void Capture::Master::generateEvents(dt::date date)
@@ -350,7 +365,7 @@ void Capture::Master::generateEvents(dt::date date)
         if (toEvent.total_milliseconds() > Config::Instance->timeReserve())
             break;
 
-        m_lastGenerationResult.expired += capture(std::move(event), true);
+        m_lastGenerationResult.expired += capture(std::move(event), true).eventsCaptured;
         m_queue.pop_front();
     }
 }

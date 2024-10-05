@@ -10,6 +10,7 @@ include_directories("include/")
 ## --- Packages configuration --- ##
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(JPEG REQUIRED)
 
 ## --- Executable configuration --- ##
 add_executable(Copaipy "source/main.cpp"
@@ -19,6 +20,7 @@ add_executable(Copaipy "source/main.cpp"
 
     # Common modules
     "source/common/astronomy.cpp"
+    "source/common/camera.cpp"
     "source/common/config.cpp"
     "source/common/http_server.cpp"
     "source/common/i2c.cpp"
@@ -36,9 +38,24 @@ add_executable(Copaipy "source/main.cpp"
 target_link_libraries(Copaipy PRIVATE
     fmt::fmt
     spdlog::spdlog
+    JPEG::JPEG
 )
 
 ## --- Raspberry Pi linking configuration --- ##
 if (UNIX)
-    target_link_libraries(Copaipy PRIVATE "wiringPi")
+    ## --- Packages configuration --- ##
+    find_package(PkgConfig)
+    pkg_check_modules(LIBCAMERA REQUIRED IMPORTED_TARGET libcamera)
+
+    ## --- Compiler configuration --- ##
+    include_directories(${LIBCAMERA_INCLUDE_DIRS})
+    add_compile_options("-Wall -Wextra -Wpedantic -Wno-psabi")
+
+    ## --- Executable configuration --- ##
+    target_link_libraries(Copaipy PRIVATE
+        "wiringPi"
+        "boost_regex"
+        "jpeg"
+        PkgConfig::LIBCAMERA
+    )
 endif()

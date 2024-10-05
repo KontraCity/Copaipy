@@ -150,7 +150,7 @@ void HttpServer::Connection::getTrend(Sensors::Location location, int indentatio
 
 void HttpServer::Connection::getHistory(Sensors::Location location, int itemsCount, HistoryFields fields)
 {
-    std::string response = "Timestamp";
+    std::string response = "Timestamp;Daylight";
     if (fields.temperature)
         response += ";Temperature";
     if (fields.alternative)
@@ -165,10 +165,15 @@ void HttpServer::Connection::getHistory(Sensors::Location location, int itemsCou
     Sensors::Recorder::History::const_iterator iterator = (itemsCount == -1 || itemsCount > handle.history.size() ? handle.history.begin() : handle.history.end() - itemsCount);
     for (Sensors::Recorder::History::const_iterator end = handle.history.end(); iterator != end; ++iterator)
     {
+        response += fmt::format(
+            "{};{}",
+            Utility::ToUnixTimestamp(iterator->timestamp),
+            Utility::IsDaylight(iterator->timestamp) ? "true" : "false"
+        );
+
         const auto& measurement = (location == Sensors::Location::Internal ? iterator->internal : iterator->external);
         if (!measurement)
         {
-            response += std::to_string(Utility::ToUnixTimestamp(iterator->timestamp));
             if (fields.temperature)
                 response += ';';
             if (fields.alternative)
@@ -177,19 +182,18 @@ void HttpServer::Connection::getHistory(Sensors::Location location, int itemsCou
                 response += ';';
             if (fields.pressure)
                 response += ';';
-            response += '\n';
-            continue;
         }
-        
-        response += std::to_string(Utility::ToUnixTimestamp(iterator->timestamp));
-        if (fields.temperature)
-            response += fmt::format(";{:.2f}", measurement->bmp280.temperature);
-        if (fields.alternative)
-            response += fmt::format(";{:.2f}", measurement->aht20.temperature);
-        if (fields.humidity)
-            response += fmt::format(";{:.2f}", measurement->aht20.humidity);
-        if (fields.pressure)
-            response += fmt::format(";{:.2f}", measurement->bmp280.pressure);
+        else
+        {
+            if (fields.temperature)
+                response += fmt::format(";{:.2f}", measurement->bmp280.temperature);
+            if (fields.alternative)
+                response += fmt::format(";{:.2f}", measurement->aht20.temperature);
+            if (fields.humidity)
+                response += fmt::format(";{:.2f}", measurement->aht20.humidity);
+            if (fields.pressure)
+                response += fmt::format(";{:.2f}", measurement->bmp280.pressure);
+        }
         response += '\n';
     }
 

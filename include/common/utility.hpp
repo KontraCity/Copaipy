@@ -16,6 +16,9 @@
 // Library Boost.Date_Time
 #include <boost/date_time.hpp>
 
+// Custom modules
+#include "common/astronomy.hpp"
+
 namespace kc {
 
 /* Namespace aliases and imports */
@@ -75,6 +78,11 @@ namespace Utility
     /// @return Converted Unix timestamp
     int ToUnixTimestamp(pt::ptime timestamp);
 
+    /// @brief Check if it's daylight at timestamp
+    /// @param timestamp The timestamp to check
+    /// @return True if it's daylight at the timestamp
+    bool IsDaylight(pt::ptime timestamp);
+
     /// @brief Convert date to string
     /// @param date The date to convert
     /// @return Converted string
@@ -95,6 +103,12 @@ namespace Utility
     /// @param timestamp The timestamp to convert
     /// @return Converted filename
     std::string ToFilename(pt::ptime timestamp);
+
+    /// @brief Convert size to readable one
+    /// @param size The size to convert
+    /// @param suffix Readable size suffix
+    /// @return Readable size
+    std::string ToReadableSize(size_t size, char suffix = 'B');
 
     /// @brief Truncate string
     /// @param string The string to truncate

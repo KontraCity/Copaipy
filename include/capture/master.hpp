@@ -1,16 +1,18 @@
 #pragma once
 
 // STL modules
-#include <filesystem>
-#include <algorithm>
 #include <memory>
+#include <algorithm>
+#include <filesystem>
 #include <mutex>
 #include <thread>
 #include <condition_variable>
 
 // Custom modules
 #include "capture/event.hpp"
+#include "common/camera.hpp"
 #include "common/config.hpp"
+#include "common/stopwatch.hpp"
 #include "common/utility.hpp"
 #include "display/ui.hpp"
 
@@ -46,6 +48,13 @@ namespace Capture
             size_t expired = 0;
         };
 
+        struct CaptureResult
+        {
+            size_t eventsCaptured = 0;  // Count of events captured (including overlapped events)
+            size_t timeElapsed = 0;     // Amount of time it took to make the capture in milliseconds
+            size_t savedSize = 0;       // Total size of created capture file(s) in bytes
+        };
+
     private:
         /// @brief Create capture filesystem
         /// @throw std::runtime_error if internal error occurs
@@ -64,6 +73,7 @@ namespace Capture
     private:
         spdlog::logger m_logger;
         Display::Ui::Pointer m_displayUi;
+        Camera m_camera;
         GenerationResult m_lastGenerationResult;
         Event::Queue m_queue;
         Event::Pointer m_lastEvent;
@@ -87,8 +97,8 @@ namespace Capture
         /// @param event The event to capture
         /// @param expired Whether to capture event as expired or not
         /// @throw std::runtime_error if internal error occurs
-        /// @return Count of captured events
-        size_t capture(Event::Pointer&& event, bool expired = false);
+        /// @return Capture result
+        CaptureResult capture(Event::Pointer&& event, bool expired = false);
 
         /// @brief Generate events for date
         /// @param date The date to generate events for

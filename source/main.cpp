@@ -6,7 +6,6 @@
 #include "common/utility.hpp"
 #include "common/config.hpp"
 #include "common/http_server.hpp"
-#include "sensors/recorder.hpp"
 using namespace kc;
 
 struct ParseResult

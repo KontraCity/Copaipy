@@ -78,6 +78,24 @@ int Utility::ToUnixTimestamp(pt::ptime timestamp)
     return static_cast<int>((timestamp - epoch).total_seconds());
 }
 
+bool Utility::IsDaylight(pt::ptime timestamp)
+{
+    static dt::date date;
+    static pt::ptime sunriseTimestamp, sunsetTimestamp;
+    if (timestamp.date() != date)
+    {
+        date = timestamp.date();
+        sunriseTimestamp = Astronomy::CalculateSunrise(date);
+        sunsetTimestamp = Astronomy::CalculateSunset(date);
+    }
+
+    if (timestamp < sunriseTimestamp)
+        return false;
+    if (timestamp <= sunsetTimestamp)
+        return true;
+    return false;
+}
+
 std::string Utility::ToString(dt::date date)
 {
     return fmt::format(
@@ -116,6 +134,18 @@ std::string Utility::ToFilename(pt::ptime timestamp)
     if (milliseconds)
         result += fmt::format(".{:#03d}", milliseconds);
     return result;
+}
+
+std::string Utility::ToReadableSize(size_t size, char suffix)
+{
+    double number = static_cast<double>(size);
+    for (const char* unit : { "", "Ki", "Mi", "Gi" })
+    {
+        if (number < 1024.0)
+            return fmt::format("{:.1f} {}{}", number, unit, suffix);
+        number /= 1024.0;
+    }
+    return fmt::format("{:.1f} Ti{}", number, suffix);
 }
 
 std::string Utility::Truncate(const std::string& string, size_t maxLength, bool end)
