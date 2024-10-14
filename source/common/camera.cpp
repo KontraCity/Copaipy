@@ -120,12 +120,13 @@ void Camera::DrawUi(Image& image, const UiInfo& info)
     int totalWidth = taskText.width() + timestampText.width();
     image.draw_image(image.width() / 2 - totalWidth / 2, image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, CreateText(U"Task", Ui::SmallTextSize));
     image.draw_image(image.width() / 2 - totalWidth / 2, image.height() - Ui::InfoBarHeight + Ui::BigTextOffset, taskText);
-    image.draw_image(image.width() / 2 - totalWidth / 2 + taskText.width(), image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, CreateText(U"Timestamp", Ui::SmallTextSize));
+    Image text = CreateText(U"Timestamp", Ui::SmallTextSize);
+    image.draw_image(image.width() / 2 + totalWidth / 2 - text.width(), image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, text);
     image.draw_image(image.width() / 2 - totalWidth / 2 + taskText.width(), image.height() - Ui::InfoBarHeight + Ui::BigTextOffset, timestampText);
 
-    Image text = CreateText(U"Internal", Ui::SmallTextSize);
+    text = CreateText(U"Internal", Ui::SmallTextSize);
     image.draw_image(image.width() - Ui::SideMargin - text.width(), image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, text);
-    text = CreateText(CreateMeasurementString(info.record.external, info.trend.external), Ui::BigTextSize);
+    text = CreateText(CreateMeasurementString(info.record.internal, info.trend.internal), Ui::BigTextSize);
     image.draw_image(image.width() - Ui::SideMargin - text.width(), image.height() - Ui::InfoBarHeight + Ui::BigTextOffset, text);
 }
 
