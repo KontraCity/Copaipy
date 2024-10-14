@@ -1,6 +1,133 @@
-#include "common/camera.hpp"
+﻿#include "common/camera.hpp"
+using namespace kc::CameraConst;
 
 namespace kc {
+
+Camera::Image Camera::CreateText(const std::u32string& string, uint32_t height)
+{
+    static bool initialized = false;
+    static FT_Library library;
+    static FT_Face face;
+    if (!initialized)
+    {
+        FT_Error result = FT_Init_FreeType(&library);
+        if (result)
+            throw std::runtime_error(fmt::format("kc::Camera::CreateText(): Couldn't initialize FreeType library [result: {}]", result));
+
+        result = FT_New_Memory_Face(library, Font::CascadiaCode.data(), static_cast<FT_Long>(Font::CascadiaCode.size()), 0, &face);
+        if (result)
+            throw std::runtime_error(fmt::format("kc::Camera::CreateText(): Couldn't create new memory face [result: {}]", result));
+        initialized = true;
+    }
+
+    FT_Error result = FT_Set_Pixel_Sizes(face, 0, height * face->height / (face->height - face->descender));
+    if (result)
+        throw std::runtime_error(fmt::format("kc::Camera::CreateText(): Couldn't set pixel sizes [result: {}]", result));
+    height = (face->size->metrics.height) / 64;
+
+    Camera::Image text;
+    int offset = 0;
+    for (char32_t character : string)
+    {
+        FT_UInt characterIndex = FT_Get_Char_Index(face, static_cast<FT_ULong>(character));
+        if (!characterIndex)
+            throw std::runtime_error(fmt::format("kc::Camera::CreateText(): Couldn't get character index [character: {}]", static_cast<int>(character)));
+
+        result = FT_Load_Glyph(face, characterIndex, FT_LOAD_DEFAULT);
+        if (result)
+            throw std::runtime_error(fmt::format("kc::Camera::CreateText(): Couldn't load character glyph [result: {}]", result));
+
+        result = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+        if (result)
+            throw std::runtime_error(fmt::format("kc::Camera::CreateText(): Couldn't render character glyph [result: {}]", result));
+
+        int width = face->glyph->advance.x >> 6;
+        if (text.is_empty())
+        {
+            text.assign(width, height);
+            text.draw_rectangle(0, 0, text.width(), text.height(), Ui::BlackColor);
+        }
+        else
+        {
+            text.crop(0, offset + width);
+            text.draw_rectangle(offset, 0, text.width(), text.height(), Ui::BlackColor);
+        }
+
+        Camera::Image bitmap(face->glyph->bitmap.buffer, face->glyph->bitmap.width, face->glyph->bitmap.rows);
+        text.draw_image(offset + face->glyph->bitmap_left, height - face->glyph->bitmap_top + (face->size->metrics.descender / 64), bitmap);
+        offset += width;
+    }
+
+    text.resize(text.width(), text.height(), 1, 3);
+    return text;
+}
+
+char32_t Camera::TrendSymbol(double trend)
+{
+    if (trend > 1.0)
+        return U'↑';
+    if (trend > 0.3)
+        return U'⇡';
+    if (trend >= -0.3)
+        return U'~';
+    if (trend >= -1.0)
+        return U'⇣';
+    return U'↓';
+}
+
+std::u32string Camera::CreateMeasurementString(const std::optional<Sensors::Measurement>& measurement, const std::optional<Sensors::Measurement>& trend)
+{
+    if (!measurement)
+        return U"×××.×°C× ×××.×%× ××××.×hPa×";
+
+    if (!trend)
+    {
+        return fmt::format(
+            U"{:>+5.1f}°C× {:>5.1f}%× {:>6.1f}hPa×",
+            measurement->bmp280.temperature,
+            measurement->aht20.humidity,
+            measurement->bmp280.pressure
+        );
+    }
+
+    return fmt::format(
+        U"{:>+5.1f}°C{} {:>5.1f}%{} {:>6.1f}hPa{}",
+        measurement->bmp280.temperature,
+        TrendSymbol(trend->bmp280.temperature),
+        measurement->aht20.humidity,
+        TrendSymbol(trend->aht20.humidity),
+        measurement->bmp280.pressure,
+        TrendSymbol(trend->bmp280.pressure)
+    );
+}
+
+void Camera::DrawUi(Image& image, const UiInfo& info)
+{
+    image.draw_rectangle(0, image.height() - Ui::InfoBarHeight, image.width(), image.height(), Ui::BlackColor, 1.0);
+    image.draw_image(Ui::SideMargin, image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, CreateText(U"External", Ui::SmallTextSize));
+    image.draw_image(Ui::SideMargin, image.height() - Ui::InfoBarHeight + Ui::BigTextOffset, CreateText(CreateMeasurementString(info.record.external, info.trend.external), Ui::BigTextSize));
+
+    Image taskText = CreateText(fmt::format(U"[{}] ", std::u32string(info.task.begin(), info.task.end())), Ui::BigTextSize);
+    Image timestampText = CreateText(fmt::format(
+        U"{:#02d}.{:#02d}.{:#04d} {:#02d}:{:#02d}:{:#02d}",
+        static_cast<int>(info.record.timestamp.date().day()),
+        info.record.timestamp.date().month().as_number(),
+        static_cast<int>(info.record.timestamp.date().year()),
+        info.record.timestamp.time_of_day().hours(),
+        info.record.timestamp.time_of_day().minutes(),
+        info.record.timestamp.time_of_day().seconds()
+    ), Ui::BigTextSize);
+    int totalWidth = taskText.width() + timestampText.width();
+    image.draw_image(image.width() / 2 - totalWidth / 2, image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, CreateText(U"Task", Ui::SmallTextSize));
+    image.draw_image(image.width() / 2 - totalWidth / 2, image.height() - Ui::InfoBarHeight + Ui::BigTextOffset, taskText);
+    image.draw_image(image.width() / 2 - totalWidth / 2 + taskText.width(), image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, CreateText(U"Timestamp", Ui::SmallTextSize));
+    image.draw_image(image.width() / 2 - totalWidth / 2 + taskText.width(), image.height() - Ui::InfoBarHeight + Ui::BigTextOffset, timestampText);
+
+    Image text = CreateText(U"Internal", Ui::SmallTextSize);
+    image.draw_image(image.width() - Ui::SideMargin - text.width(), image.height() - Ui::InfoBarHeight + Ui::SmallTextOffset, text);
+    text = CreateText(CreateMeasurementString(info.record.external, info.trend.external), Ui::BigTextSize);
+    image.draw_image(image.width() - Ui::SideMargin - text.width(), image.height() - Ui::InfoBarHeight + Ui::BigTextOffset, text);
+}
 
 #ifdef __unix__
 void Camera::requestCompleted(lc::Request* request)
@@ -82,8 +209,8 @@ void Camera::turnOn()
     }
 
     lc::StreamConfiguration& streamConfig = cameraConfig->at(0);
-    streamConfig.size.width = CameraConst::CaptureWidth;
-    streamConfig.size.height = CameraConst::CaptureHeight;
+    streamConfig.size.width = CaptureWidth;
+    streamConfig.size.height = CaptureHeight;
     streamConfig.pixelFormat = lc::formats::BGR888;
     if (cameraConfig->validate() == lc::CameraConfiguration::Status::Invalid)
     {
@@ -166,8 +293,15 @@ Camera::Image Camera::capture()
     m_image = nullptr;
     return image;
 #else
-    return Image(CameraConst::CaptureWidth, CameraConst::CaptureHeight, 1, 3);
+    return Image(CaptureWidth, CaptureHeight, 1, 3);
 #endif
+}
+
+Camera::Image Camera::capture(const UiInfo& info)
+{
+    Image image = capture();
+    DrawUi(image, info);
+    return image;
 }
 
 } // namespace kc

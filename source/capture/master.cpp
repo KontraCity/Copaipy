@@ -281,7 +281,7 @@ Capture::Master::CaptureResult Capture::Master::capture(Event::Pointer&& event, 
 {
     CaptureResult result = {};
     Stopwatch stopwatch;
-    Camera::Image image = expired ? Camera::Image() : m_camera.capture();
+    Camera::Image image = expired ? Camera::Image() : m_camera.capture({ event->name(), Sensors::Recorder::Instance->last(), Sensors::Recorder::Instance->trend() });
     for (Event* captureEvent = event.get(); captureEvent; captureEvent = captureEvent->overlapping().get())
     {
         std::string filePath;

@@ -148,7 +148,7 @@ int main(int argc, char** argv)
 {
     ParseResult result = ParseOptions(argc, argv);
     switch (result.result)
-    {
+    { 
         case ParseResult::Result::None:
             return 1;
         case ParseResult::Result::ShowHelp:

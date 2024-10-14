@@ -11,6 +11,7 @@ include_directories("include/")
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(JPEG REQUIRED)
+find_package(Freetype REQUIRED)
 
 ## --- Executable configuration --- ##
 add_executable(Copaipy "source/main.cpp"
@@ -39,6 +40,7 @@ target_link_libraries(Copaipy PRIVATE
     fmt::fmt
     spdlog::spdlog
     JPEG::JPEG
+    Freetype::Freetype
 )
 
 ## --- Raspberry Pi linking configuration --- ##
