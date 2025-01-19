@@ -1,84 +1,41 @@
 #pragma once
 
-// STL modules
 #include <memory>
-#include <sstream>
-#include <chrono>
 #include <functional>
 
-// Boost libraries
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio.hpp>
-#include <boost/beast/core/buffers_to_string.hpp>
-#include <boost/regex.hpp>
-
-// Library nlohmann::json
-#include <nlohmann/json.hpp>
-
-// Library {fmt}
-#include <fmt/format.h>
-
-// Custom modules
-#include "capture/master.hpp"
-#include "common/config.hpp"
-#include "common/utility.hpp"
-#include "display/ui.hpp"
-#include "sensors/recorder.hpp"
-
-namespace kc {
-
-/* Namespace aliases and imports */
-using nlohmann::json;
 namespace beast = boost::beast;
 namespace asio = boost::asio;
 
-class HttpServer
-{
-private:
-    // Shared server logger instance pointer
+#include <spdlog/spdlog.h>
+
+#include "capture/master.hpp"
+#include "display/ui.hpp"
+#include "sensors/recorder.hpp"
+
+namespace cp {
+
+class HttpServer {
+public:
     using Logger = std::shared_ptr<spdlog::logger>;
 
-    class Connection : public std::enable_shared_from_this<Connection>
-    {
-    private:
-        // Function used to create connection's log message
+    class Connection : public std::enable_shared_from_this<Connection> {
+    public:
         using LogMessageFunction = std::function<std::string(std::string)>;
 
-        struct Target
-        {
+        struct Target {
             std::string resource;
             std::string query;
         };
 
-        struct HistoryFields
-        {
+        struct HistoryFields {
             bool temperature = true;
             bool alternative = true;
             bool humidity = true;
             bool pressure = true;
         };
-
-    private:
-        /// @brief Parse target resource and query
-        /// @param target Target string to parse
-        /// @return Parsed target
-        static Target ParseTarget(const std::string& target);
-
-        /// @brief Deduce response indentation from request query
-        /// @param query Request query
-        /// @return Response indentation
-        static int GetIndentation(const std::string& query);
-
-        /// @brief Deduce response items count from request query
-        /// @param query Request query
-        /// @return Response items count (-1 if not found)
-        static int GetItemsCount(const std::string& query);
-
-        /// @brief Deduce history response fields from request query
-        /// @param query Request query
-        /// @return History response fields
-        static HistoryFields GetHistoryFields(const std::string& query);
 
     private:
         Logger m_logger;
@@ -91,52 +48,6 @@ private:
         beast::http::response<beast::http::dynamic_body> m_response;
         asio::steady_timer m_timeout;
 
-    private:
-        /// @brief Generate generic "404 Not Found" response
-        void notFound();
-
-        /// @brief Generate generic "405 Method Not Allowed" response
-        void methodNotAllowed();
-
-        /// @brief Generate "/api/<location>" resource GET response
-        /// @param location Sensors location
-        /// @param indentation Response indentation
-        void getSensors(Sensors::Location location, int indentation);
-
-        /// @brief Generate "/api/<location>/trend" resource GET response
-        /// @param location Sensors location
-        /// @param indentation Response indentation
-        void getTrend(Sensors::Location location, int indentation);
-
-        /// @brief Generate "/api/<location>/history" resource GET response
-        /// @param location Sensors location
-        /// @param fields History fields to show
-        /// @param itemsCount Count of records to show
-        void getHistory(Sensors::Location location, int itemsCount, HistoryFields fields);
-
-        /// @brief Generate "/api/display" resource GET response
-        /// @param indentation Response indentation
-        void getDisplay(int indentation);
-
-        /// @brief Generate "/api/display" resource POST response
-        /// @param indentation Response indentation
-        void postDisplay(int indentation);
-
-        /// @brief Generate "/api/master" resource GET response
-        /// @param indentation Response indentation
-        void getMaster(int indentation);
-
-        /// @brief Generate "/api/master" resource POST response
-        /// @param indentation Response indentation
-        void postMaster(int indentation);
-
-    private:
-        /// @brief Produce HTTP request response
-        void produceResponse();
-
-        /// @brief Send produced response
-        void sendResponse();
-
     public:
         /// @brief Initialize connection
         /// @param logger HTTP server logger
@@ -145,7 +56,39 @@ private:
         /// @param socket Connection socket
         Connection(Logger logger, Display::Ui::Pointer displayUi, Capture::Master::Pointer captureMaster, asio::ip::tcp::socket& socket);
 
-        /// @brief Handle HTTP request
+    private:
+        // "404 Not Found"
+        void notFound();
+
+        // "405 Method Not Allowed"
+        void methodNotAllowed();
+
+        // GET /api/<location>
+        void getSensors(Sensors::Location location, int indentation);
+
+        // GET "/api/<location>/trend"
+        void getTrend(Sensors::Location location, int indentation);
+
+        // GET "/api/<location>/history"
+        void getHistory(Sensors::Location location, int itemsCount, HistoryFields fields);
+
+        // GET "/api/display"
+        void getDisplay(int indentation);
+
+        // POST "/api/display"
+        void postDisplay(int indentation);
+
+        // GET "/api/master"
+        void getMaster(int indentation);
+
+        // POST "/api/master"
+        void postMaster(int indentation);
+
+        void produceResponse();
+
+        void sendResponse();
+    
+    public:
         void handleRequest();
     };
 
@@ -157,17 +100,12 @@ private:
     asio::ip::tcp::acceptor m_acceptor;
     asio::ip::tcp::socket m_socket;
 
-    /// @brief Start accepting client connections
     void startAccepting();
 
 public:
-    /// @brief Initialize HTTP server
-    /// @param displayUi Initialized display UI
-    /// @param captureMaster Initialized capture master
     HttpServer(Display::Ui::Pointer displayUi, Capture::Master::Pointer captureMaster);
 
-    /// @brief Start listening for connections
     void start();
 };
 
-} // namespace kc
+} // namespace cp

@@ -1,19 +1,15 @@
-## --- Project configuration --- ##
 cmake_minimum_required(VERSION 3.10)
 project(Copaipy)
 
-## --- Compiler configuration --- ##
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 include_directories("include/")
 
-## --- Packages configuration --- ##
 find_package(fmt CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(Freetype REQUIRED)
 
-## --- Executable configuration --- ##
 add_executable(Copaipy "source/main.cpp"
     # Capture modules
     "source/capture/event.cpp"
@@ -25,7 +21,6 @@ add_executable(Copaipy "source/main.cpp"
     "source/common/config.cpp"
     "source/common/http_server.cpp"
     "source/common/i2c.cpp"
-    "source/common/stopwatch.cpp"
     "source/common/utility.cpp"
 
     # Display modules
@@ -43,17 +38,13 @@ target_link_libraries(Copaipy PRIVATE
     Freetype::Freetype
 )
 
-## --- Raspberry Pi linking configuration --- ##
 if (UNIX)
-    ## --- Packages configuration --- ##
     find_package(PkgConfig)
     pkg_check_modules(LIBCAMERA REQUIRED IMPORTED_TARGET libcamera)
 
-    ## --- Compiler configuration --- ##
     include_directories(${LIBCAMERA_INCLUDE_DIRS})
     add_compile_options("-Wall -Wextra -Wpedantic -Wno-psabi")
 
-    ## --- Executable configuration --- ##
     target_link_libraries(Copaipy PRIVATE
         "wiringPi"
         "boost_regex"

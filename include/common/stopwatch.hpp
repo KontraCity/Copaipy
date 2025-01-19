@@ -1,36 +1,35 @@
 #pragma once
 
-// STL modules
 #include <chrono>
 
-namespace kc {
+namespace cp {
 
-class Stopwatch
-{
-public:
-    using Seconds = std::chrono::seconds;
-    using Milliseconds = std::chrono::milliseconds;
-    using Microseconds = std::chrono::microseconds;
-    using Nanoseconds = std::chrono::nanoseconds;
-
+class Stopwatch {
 private:
-    std::chrono::high_resolution_clock::time_point m_start;
+    using clock = std::chrono::high_resolution_clock;
+    clock::time_point m_start;
 
 public:
-    /// @brief Start stopwatch
-    Stopwatch();
+    Stopwatch()
+        : m_start(clock::now())
+    {}
 
-    /// @brief Reset stopwatch
-    void reset();
+public:
+    inline void reset() {
+        m_start = clock::now();
+    }
 
-    /// @brief Get elapsed time from stopwatch start/reset
-    /// @tparam Unit to get elapsed time in
-    /// @return Elapsed time
-    template <typename Unit>
-    inline uint64_t elapsed() const
-    {
-        return std::chrono::duration_cast<Unit>(std::chrono::high_resolution_clock::now() - m_start).count();
+    inline float seconds() const {
+        return milliseconds() / 1000.0f;
+    }
+
+    inline float milliseconds() const {
+        return microseconds() / 1000.0f;
+    }
+
+    inline size_t microseconds() const {
+        return std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - m_start).count();
     }
 };
 
-} // namespace kc
+} // namespace cp

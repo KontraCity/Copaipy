@@ -1,7 +1,15 @@
 #include "common/config.hpp"
-using namespace kc::ConfigConst;
+using namespace cp::ConfigConst;
 
-namespace kc {
+#include <fstream>
+#include <stdexcept>
+
+#include <nlohmann/json.hpp>
+using nlohmann::json;
+
+#include <fmt/format.h>
+
+namespace cp {
 
 /*
 *   std::make_unique() needs public constructor, but the Config class uses singleton pattern.
@@ -9,11 +17,11 @@ namespace kc {
 */
 const std::unique_ptr<Config> Config::Instance(new Config);
 
-void Config::GenerateSampleFile()
-{
+void Config::GenerateSampleFile() {
     std::ofstream configFile(ConfigFile);
-    if (!configFile)
-        throw std::runtime_error("kc::Config::GenerateSampleFile(): Couldn't create sample configuration file");
+    if (!configFile) {
+        throw std::runtime_error("cp::Config::GenerateSampleFile(): Couldn't create sample configuration file");
+    }
 
     json commonObject;
     commonObject[Objects::HttpPort] = Defaults::HttpPort;
@@ -39,17 +47,14 @@ void Config::GenerateSampleFile()
     configFile << configJson.dump(4) << '\n';
 }
 
-Config::Config()
-{
+Config::Config() {
     std::ifstream configFile(ConfigFile);
-    if (!configFile)
-    {
+    if (!configFile) {
         m_error = fmt::format("Couldn't open configuration file \"{}\"", ConfigFile);
         return;
     }
 
-    try
-    {
+    try {
         const json configJson = json::parse(configFile);
 
         const json& commonObject = configJson.at(Objects::Common);
@@ -68,41 +73,35 @@ Config::Config()
         m_sunriseAngle = sunObject.at(Objects::SunriseAngle);
         m_sunsetAngle = sunObject.at(Objects::SunsetAngle);
     }
-    catch (const json::exception&)
-    {
+    catch (const json::exception&) {
         m_error = fmt::format("Couldn't parse configuration file \"{}\" JSON", ConfigFile);
         return;
     }
 
-    if (m_timeReserve < 0)
-    {
+    if (m_timeReserve < 0) {
         m_error = fmt::format("Time reserve value can't be negative (current: {})", m_timeReserve);
         return;
     }
 
-    if (m_latitude < -90.0 || m_latitude > 90.0)
-    {
+    if (m_latitude < -90.0 || m_latitude > 90.0) {
         m_error = fmt::format("Latitude value is not in range (current: {}, range: [-90; 90])", m_latitude);
         return;
     }
 
-    if (m_longitude < -180.0 || m_longitude > 180.0)
-    {
+    if (m_longitude < -180.0 || m_longitude > 180.0) {
         m_error = fmt::format("Longitude value is not in range (current: {}, range: [-180; 180])", m_longitude);
         return;
     }
 
-    if (m_sunriseAngle < 80.0 || m_sunriseAngle > 94.7)
-    {
+    if (m_sunriseAngle < 80.0 || m_sunriseAngle > 94.7) {
         m_error = fmt::format("Target sunrise angle value is not in range (current: {}, range: [80; 94.7])", m_sunriseAngle);
         return;
     }
 
-    if (m_sunsetAngle < 80.0 || m_sunsetAngle > 94.7)
-    {
+    if (m_sunsetAngle < 80.0 || m_sunsetAngle > 94.7) {
         m_error = fmt::format("Target sunset angle value is not in range (current: {}, range: [80; 94.7])", m_sunsetAngle);
         return;
     }
 }
 
-} // namespace kc
+} // namespace cp

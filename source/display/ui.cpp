@@ -1,31 +1,52 @@
 #include "display/ui.hpp"
 
-namespace kc {
+#include <cmath>
 
-char Display::Ui::TrendSymbol(double trend)
-{
-    if (trend > 1.0)
+#include <fmt/format.h>
+
+#include "common/config.hpp"
+#include "common/utility.hpp"
+#include "sensors/recorder.hpp"
+
+namespace cp {
+
+static inline char TrendSymbol(double trend) {
+    if (trend > 1.0) {
         return '\6';
-    if (trend > 0.3)
+    }
+    if (trend > 0.3) {
         return '\4';
-    if (trend >= -0.3)
+    }
+    if (trend >= -0.3) {
         return '-';
-    if (trend >= -1.0)
+    }
+    if (trend >= -1.0) {
         return '\5';
+    }
     return '\7';
 }
 
-void Display::Ui::updateNextEventInfo(pt::ptime now)
-{
-    if (!m_nextEvent)
-    {
+Display::Ui::Ui()
+    : Master(Config::Instance->internalPort(), false) {
+    // Display UI reset
+    disable();
+}
+
+Display::Ui::~Ui() {
+    // Display UI reset
+    disable();
+}
+
+void Display::Ui::updateNextEventInfo(pt::ptime now) {
+    if (!m_nextEvent) {
         print(0, 11, "\3\3\3\3\3");
         return;
     }
 
     size_t secondsTo = std::abs((m_nextEvent->timestamp() - now).total_seconds());
-    if (secondsTo > 99 * 60)
+    if (secondsTo > 99 * 60) {
         secondsTo = 99 * 60;
+    }
 
     print(0, 11, fmt::format(
         "{}\3{:0>2}",
@@ -34,19 +55,19 @@ void Display::Ui::updateNextEventInfo(pt::ptime now)
     ));
 }
 
-void Display::Ui::updateFunction()
-{
-    while (true)
-    {
+void Display::Ui::updateFunction() {
+    while (true) {
         std::unique_lock lock(m_mutex);
-        if (m_updateThreadStatus == ThreadStatus::Stopped)
+        if (m_updateThreadStatus == ThreadStatus::Stopped) {
             return;
+        }
         lock.unlock();
 
         {
             std::lock_guard updateLock(m_updateMutex);
-            if (m_updateThreadStatus == ThreadStatus::Stopped)
+            if (m_updateThreadStatus == ThreadStatus::Stopped) {
                 return;
+            }
 
             pt::ptime now = pt::second_clock::local_time() + pt::seconds(10);
             updateNextEventInfo(now);
@@ -59,8 +80,7 @@ void Display::Ui::updateFunction()
             Sensors::Recorder::Record record = Sensors::Recorder::Instance->last();
             Sensors::Recorder::Record trend = Sensors::Recorder::Instance->trend();
 
-            if (record.external)
-            {
+            if (record.external) {
                 record.external->aht20.humidity = Utility::Limit(record.external->aht20.humidity, 0, 99.9);
                 print(0, 0, fmt::format(
                     "{:>5.1f}{}{:4.1f}{}",
@@ -70,13 +90,11 @@ void Display::Ui::updateFunction()
                     trend.external ? TrendSymbol(trend.external->aht20.humidity) : '\3'
                 ));
             }
-            else
-            {
+            else {
                 print(0, 0, "   FAIL   |");
             }
 
-            if (record.internal)
-            {
+            if (record.internal) {
                 record.internal->aht20.humidity = Utility::Limit(record.internal->aht20.humidity, 0, 99.9);
                 print(1, 0, fmt::format(
                     "{:>5.1f}{}{:4.1f}{}",
@@ -86,26 +104,25 @@ void Display::Ui::updateFunction()
                     trend.internal ? TrendSymbol(trend.internal->aht20.humidity) : '\3'
                 ));
             }
-            else
-            {
+            else {
                 print(1, 0, "   FAIL   |");
             }
         }
 
         lock.lock();
-        if (m_updateThreadStatus == ThreadStatus::Stopped)
+        if (m_updateThreadStatus == ThreadStatus::Stopped) {
             return;
-        if (Utility::InterSleep(lock, m_cv, Utility::TimeToNextMinute().total_milliseconds() / 1000.0))
+        }
+        if (Utility::InterSleep(lock, m_cv, Utility::TimeToNextMinute().total_milliseconds() / 1000.0)) {
             return;
+        }
     }
 }
 
-void Display::Ui::messageFunction()
-{
+void Display::Ui::messageFunction() {
     {
         std::lock_guard lock(m_mutex);
-        if (m_queue.empty())
-        {
+        if (m_queue.empty()) {
             m_messageThreadStatus = ThreadStatus::Idle;
             return;
         }
@@ -114,18 +131,16 @@ void Display::Ui::messageFunction()
 
     std::lock_guard updateLock(m_updateMutex);
     Master::Screen previousScreen = screen();
-    while (true)
-    {
-        Message message;
-        {
+    while (true) {
+        Message message; {
             std::lock_guard lock(m_mutex);
-            if (m_queue.empty())
+            if (m_queue.empty()) {
                 break;
+            }
             message = std::move(m_queue[0]);
             m_queue.pop_front();
 
-            if (message.empty())
-            {
+            if (message.empty()) {
                 m_messageThreadStatus = ThreadStatus::Idle;
                 return;
             }
@@ -135,53 +150,53 @@ void Display::Ui::messageFunction()
         clear();
         print(0, 0, message[0].line1);
         print(1, 0, message[0].line2);
-        for (size_t index = 0, size = message.size(); index < size; ++index)
-        {
-            if (!backlight())
-            {
+        for (size_t index = 0, size = message.size(); index < size; ++index) {
+            if (!backlight()) {
                 Utility::Sleep(0.3);
                 std::lock_guard lock(m_mutex);
-                if (m_messageThreadStatus == ThreadStatus::Stopped)
+                if (m_messageThreadStatus == ThreadStatus::Stopped) {
                     return;
+                }
                 backlight(true);
             }
 
             const Screen& screen = message[index];
-            if (!screen.blinks)
-            {
+            if (!screen.blinks) {
                 std::unique_lock lock(m_mutex);
                 print(0, 0, screen.line1);
                 print(1, 0, screen.line2);
-                if (m_messageThreadStatus == ThreadStatus::Stopped)
+                if (m_messageThreadStatus == ThreadStatus::Stopped) {
                     return;
-                if (Utility::InterSleep(lock, m_cv, screen.delay))
+                }
+                if (Utility::InterSleep(lock, m_cv, screen.delay)) {
                     return;
+                }
             }
-            else
-            {
-                for (uint32_t blink = 0; blink < screen.blinks; ++blink)
-                {
+            else {
+                for (uint32_t blink = 0; blink < screen.blinks; ++blink) {
                     std::unique_lock lock(m_mutex);
                     print(0, 0, screen.line1);
                     print(1, 0, screen.line2);
-                    if (m_messageThreadStatus == ThreadStatus::Stopped)
+                    if (m_messageThreadStatus == ThreadStatus::Stopped) {
                         return;
-                    if (Utility::InterSleep(lock, m_cv, screen.delay))
+                    }
+                    if (Utility::InterSleep(lock, m_cv, screen.delay)) {
                         return;
+                    }
 
-                    if (blink + 1 != screen.blinks)
-                    {
+                    if (blink + 1 != screen.blinks) {
                         clear();
-                        if (m_messageThreadStatus == ThreadStatus::Stopped)
+                        if (m_messageThreadStatus == ThreadStatus::Stopped) {
                             return;
-                        if (Utility::InterSleep(lock, m_cv, screen.delay))
+                        }
+                        if (Utility::InterSleep(lock, m_cv, screen.delay)) {
                             return;
+                        }
                     }
                 }
             }
             
-            if (index + 1 != size)
-            {
+            if (index + 1 != size) {
                 clear();
                 Utility::Sleep(0.3);
             }
@@ -194,45 +209,22 @@ void Display::Ui::messageFunction()
     Utility::Sleep(0.3);
 
     std::lock_guard lock(m_mutex);
-    if (m_messageThreadStatus != ThreadStatus::Stopped)
-    {
+    if (m_messageThreadStatus != ThreadStatus::Stopped) {
         backlight(true);
         m_messageThreadStatus = ThreadStatus::Idle;
     }
 }
 
-Display::Ui::Ui()
-    : Master(Config::Instance->internalPort(), false)
-    , m_updateThreadStatus(ThreadStatus::Idle)
-    , m_messageThreadStatus(ThreadStatus::Idle)
-{
-    // Display UI reset
-    disable();
-}
-
-Display::Ui::~Ui()
-{
-    // Display UI reset
-    disable();
-}
-
-bool Display::Ui::enabled()
-{
-    std::lock_guard lock(m_mutex);
-    return (m_updateThreadStatus == ThreadStatus::Running);
-}
-
-void Display::Ui::enable()
-{
+void Display::Ui::enable() {
     std::unique_lock lock(m_mutex);
-    if (m_updateThreadStatus == ThreadStatus::Running)
+    if (m_updateThreadStatus == ThreadStatus::Running) {
         return;
+    }
     m_updateThreadStatus = ThreadStatus::Running;
     lock.unlock();
 
     static bool startupDisplayed = false;
-    if (!startupDisplayed)
-    {
+    if (!startupDisplayed) {
         configure(true, false, false);
         showMessage({
             {
@@ -256,8 +248,7 @@ void Display::Ui::enable()
         startupDisplayed = true;
         Utility::Sleep(0.1);
     }
-    else
-    {
+    else {
         configure(true, false, false);
         backlight(true);
     }
@@ -266,19 +257,20 @@ void Display::Ui::enable()
     m_updateThread = std::thread(&Ui::updateFunction, this);
 }
 
-void Display::Ui::disable()
-{
+void Display::Ui::disable() {
     std::unique_lock lock(m_mutex);
     m_updateThreadStatus = ThreadStatus::Stopped;
     m_messageThreadStatus = ThreadStatus::Stopped;
 
     lock.unlock();
     m_cv.notify_all();
-    if (m_updateThread.joinable())
+    if (m_updateThread.joinable()) {
         m_updateThread.join();
+    }
     m_updateThreadStatus = ThreadStatus::Idle;
-    if (m_messageThread.joinable())
+    if (m_messageThread.joinable()) {
         m_messageThread.join();
+    }
     m_messageThreadStatus = ThreadStatus::Idle;
     lock.lock();
 
@@ -287,37 +279,37 @@ void Display::Ui::disable()
     clear();
 }
 
-void Display::Ui::showMessage(const Message& message)
-{
+void Display::Ui::showMessage(const Message& message) {
     std::lock_guard lock(m_mutex);
-    if (m_updateThreadStatus != ThreadStatus::Running)
+    if (m_updateThreadStatus != ThreadStatus::Running) {
         return;
+    }
     m_queue.push_back(message);
 
-    if (m_messageThreadStatus == ThreadStatus::Idle)
-    {
-        if (m_messageThread.joinable())
+    if (m_messageThreadStatus == ThreadStatus::Idle) {
+        if (m_messageThread.joinable()) {
             m_messageThread.join();
+        }
         m_messageThreadStatus = ThreadStatus::Running;
         m_messageThread = std::thread(&Ui::messageFunction, this);
     }
 }
 
-void Display::Ui::updateNextEvent(Capture::Event* event)
-{
+void Display::Ui::updateNextEvent(Capture::Event* event) {
     {
         std::lock_guard lock(m_mutex);
-        if (event)
+        if (event) {
             m_nextEvent = std::make_unique<Capture::Event>(event->name(), event->shortName(), event->timestamp());
-        else
+        }
+        else {
             m_nextEvent.reset();
+        }
     }
 
-    if (m_messageThreadStatus != ThreadStatus::Running)
-    {
+    if (m_messageThreadStatus != ThreadStatus::Running) {
         std::lock_guard updateLock(m_updateMutex);
         updateNextEventInfo(pt::second_clock::local_time());
     }
 }
 
-} // namespace kc
+} // namespace cp

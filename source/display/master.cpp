@@ -1,39 +1,13 @@
 #include "display/master.hpp"
-using namespace kc::Display::MasterConst;
+using namespace cp::Display::MasterConst;
 
-namespace kc {
+#include "common/utility.hpp"
 
-void Display::Master::sendByte(uint8_t byte, bool instruction)
-{
-    uint8_t pinConfiguration = byte & 0b1111'0000;
-    if (!instruction)
-        pinConfiguration |= Configurations::RegisterSelect;
-    if (m_backlight)
-        pinConfiguration |= Configurations::Backlight;
-
-    send({ pinConfiguration });
-    enable(pinConfiguration);
-
-    pinConfiguration = (byte << 4 & 0b1111'0000) | (pinConfiguration & 0b0000'1111);
-    send({ pinConfiguration });
-    enable(pinConfiguration);
-}
-
-void Display::Master::enable(uint8_t pinConfiguration)
-{
-    send({ static_cast<uint8_t>(pinConfiguration | Configurations::Enable) });
-    Utility::Sleep(0.0005);
-    send({ pinConfiguration });
-    Utility::Sleep(0.0005);
-}
+namespace cp {
 
 Display::Master::Master(const std::string& port, bool backlight)
     : Device(port, 0x3F)
-    , m_row(0)
-    , m_column(0)
-    , m_backlight(backlight)
-    , m_screen({})
-{
+    , m_backlight(backlight) {
     sendByte(Instructions::SetAddress | 0b0000'0011, true);
     sendByte(Instructions::SetAddress | 0b0000'0010, true);
     sendByte(Instructions::FunctionSet | 0b0000'1000, true);
@@ -43,8 +17,36 @@ Display::Master::Master(const std::string& port, bool backlight)
     configure(true, false, false);
 }
 
-void Display::Master::initCustomCharacters()
-{
+Display::Master::~Master() {
+    configure(false, false, false);
+    clear();
+}
+
+void Display::Master::sendByte(uint8_t byte, bool instruction) {
+    uint8_t pinConfiguration = byte & 0b1111'0000;
+    if (!instruction) {
+        pinConfiguration |= Configurations::RegisterSelect;
+    }
+    if (m_backlight) {
+        pinConfiguration |= Configurations::Backlight;
+    }
+
+    send({ pinConfiguration });
+    enable(pinConfiguration);
+
+    pinConfiguration = (byte << 4 & 0b1111'0000) | (pinConfiguration & 0b0000'1111);
+    send({ pinConfiguration });
+    enable(pinConfiguration);
+}
+
+void Display::Master::enable(uint8_t pinConfiguration) {
+    send({ static_cast<uint8_t>(pinConfiguration | Configurations::Enable) });
+    Utility::Sleep(0.0005);
+    send({ pinConfiguration });
+    Utility::Sleep(0.0005);
+}
+
+void Display::Master::initCustomCharacters() {
     sendByte(Instructions::SetAddress | static_cast<uint8_t>(CustomCharacter::HappyFace) << 3, true);
     sendByte(0b00000);
     sendByte(0b01010);
@@ -116,14 +118,7 @@ void Display::Master::initCustomCharacters()
     sendByte(0b00000);
 }
 
-Display::Master::~Master()
-{
-    configure(false, false, false);
-    clear();
-}
-
-void Display::Master::configure(bool on, bool showCursor, bool showBlinkingBlock)
-{
+void Display::Master::configure(bool on, bool showCursor, bool showBlinkingBlock) {
     uint8_t instruction = Instructions::DisplayControl;
     instruction |= static_cast<uint8_t>(on << 2);
     instruction |= static_cast<uint8_t>(showCursor << 1);
@@ -131,17 +126,14 @@ void Display::Master::configure(bool on, bool showCursor, bool showBlinkingBlock
     sendByte(instruction, true);
 }
 
-void Display::Master::backlight(bool enabled)
-{
-    if (m_backlight != enabled)
-    {
+void Display::Master::backlight(bool enabled) {
+    if (m_backlight != enabled) {
         send({ enabled ? Configurations::Backlight : static_cast<uint8_t>(0) });
         m_backlight = enabled;
     }
 }
 
-void Display::Master::clear()
-{
+void Display::Master::clear() {
     sendByte(Instructions::ClearDisplay, true);
     m_row = 0;
     m_column = 0;
@@ -151,15 +143,13 @@ void Display::Master::clear()
     m_screen[1].fill(' ');
 }
 
-void Display::Master::home()
-{
+void Display::Master::home() {
     sendByte(Instructions::ReturnHome, true);
     m_row = 0;
     m_column = 0;
 }
 
-void Display::Master::position(int row, int column)
-{
+void Display::Master::position(int row, int column) {
     m_row = static_cast<int>(Utility::Limit(row, 0, Dimensions::Rows - 1));
     m_column = static_cast<int>(Utility::Limit(column, 0, Dimensions::Columns));
 
@@ -169,34 +159,27 @@ void Display::Master::position(int row, int column)
     sendByte(instruction, true);
 }
 
-void Display::Master::print(char character)
-{
-    if (m_column < Dimensions::Columns)
-    {
+void Display::Master::print(char character) {
+    if (m_column < Dimensions::Columns) {
         sendByte(character);
         m_screen[m_row][m_column++] = character;
     }
 }
 
-void Display::Master::print(int row, int column, char character)
-{
+void Display::Master::print(int row, int column, char character) {
     position(row, column);
     print(character);
 }
 
-void Display::Master::print(const std::string& string)
-{
+void Display::Master::print(const std::string& string) {
     bool skipping = false;
-    for (size_t index = 0, length = string.length(); index < length && m_column < Dimensions::Columns; ++index, ++m_column)
-    {
-        if (m_screen[m_row][m_column] == string[index])
-        {
+    for (size_t index = 0, length = string.length(); index < length && m_column < Dimensions::Columns; ++index, ++m_column) {
+        if (m_screen[m_row][m_column] == string[index]) {
             skipping = true;
             continue;
         }
 
-        if (skipping)
-        {
+        if (skipping) {
             skipping = false;
             position(m_row, m_column);
         }
@@ -205,20 +188,19 @@ void Display::Master::print(const std::string& string)
         m_screen[m_row][m_column] = string[index];
     }
 
-    if (skipping)
+    if (skipping) {
         position(m_row, m_column);
+    }
 }
 
-void Display::Master::print(int row, int column, const std::string& string)
-{
+void Display::Master::print(int row, int column, const std::string& string) {
     position(row, column);
     print(string);
 }
 
-void Display::Master::print(const Screen& screen)
-{
+void Display::Master::print(const Screen& screen) {
     print(0, 0, std::string(screen[0].begin(), screen[0].end()));
     print(1, 0, std::string(screen[1].begin(), screen[1].end()));
 }
 
-} // namespace kc
+} // namespace cp

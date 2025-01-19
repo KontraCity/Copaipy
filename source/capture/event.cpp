@@ -1,18 +1,30 @@
 #include "capture/event.hpp"
-using namespace kc::Capture::EventConst;
+using namespace cp::Capture::EventConst;
 
-namespace kc {
+#include <fstream>
+#include <stdexcept>
 
-void Capture::Event::Generate(dt::date date, Queue& queue)
-{
+#include <nlohmann/json.hpp>
+using nlohmann::json;
+
+#include <fmt/format.h>
+
+#include "common/astronomy.hpp"
+#include "common/config.hpp"
+#include "common/utility.hpp"
+
+namespace cp {
+
+void Capture::Event::Generate(dt::date date, Queue& queue) {
     /*
     *   "Main" task:
     *       -> Target: 60 FPS timelapse where 1 second = 1 real day.
     *       -> Capture: Evenly, 60 captures every day (one every 24 minutes).
     */
     pt::time_duration step = pt::time_duration(24, 0, 0) / 60;
-    for (pt::ptime timestamp = pt::ptime(date) + step / 2; timestamp.date() == date; timestamp += step)
+    for (pt::ptime timestamp = pt::ptime(date) + step / 2; timestamp.date() == date; timestamp += step) {
         queue.emplace_back(std::make_unique<Event>("Main", "MA", timestamp));
+    }
 
     /*
     *   "Midnight" task:
@@ -50,8 +62,9 @@ void Capture::Event::Generate(dt::date date, Queue& queue)
     *       -> Capture: Evenly between sunrises and sunsets, 6 captures every day.
     */
     step = (sunset - sunrise) / 6;
-    for (pt::ptime timestamp = sunrise + step / 2; timestamp < sunset; timestamp += step)
+    for (pt::ptime timestamp = sunrise + step / 2; timestamp < sunset; timestamp += step) {
         queue.emplace_back(std::make_unique<Event>("Day", "DA", timestamp));
+    }
 
     /*
     *   "Night" task:
@@ -59,63 +72,56 @@ void Capture::Event::Generate(dt::date date, Queue& queue)
     *       -> Capture: Evenly between sunsets and sunrises, 6 captures every day.
     */
     step = (pt::time_duration(24, 0, 0) - (sunset - sunrise)) / 6;
-    for (pt::ptime timestamp = sunrise - step / 2; timestamp.date().day() == sunrise.date().day(); timestamp -= step)
+    for (pt::ptime timestamp = sunrise - step / 2; timestamp.date().day() == sunrise.date().day(); timestamp -= step) {
         queue.emplace_back(std::make_unique<Event>("Night", "NI", timestamp));
-    for (pt::ptime timestamp = sunset + step / 2; timestamp.date().day() == sunset.date().day(); timestamp += step)
+    }
+    for (pt::ptime timestamp = sunset + step / 2; timestamp.date().day() == sunset.date().day(); timestamp += step) {
         queue.emplace_back(std::make_unique<Event>("Night", "NI", timestamp));
+    }
 }
 
-const Capture::Event::Tasks& Capture::Event::GetTasks()
-{
+const Capture::Event::Tasks& Capture::Event::GetTasks() {
     static Tasks tasks;
-    if (tasks.empty())
-    {
+    if (tasks.empty()) {
         Queue queue;
         Generate(dt::day_clock::local_day(), queue);
-        for (const Event::Pointer& event : queue)
+        for (const Event::Pointer& event : queue) {
             tasks.insert(event->name());
+        }
     }
     return tasks;
 }
 
 Capture::Event::Event(const std::string& name, const std::string& shortName, pt::ptime timestamp)
-    : m_id(-1)
-    , m_name(name)
+    : m_name(name)
     , m_shortName(shortName)
-    , m_timestamp(timestamp)
-{}
+    , m_timestamp(timestamp) {}
 
-Capture::Event::Event(const std::string& filename)
-    : m_id(-1)
-{
+Capture::Event::Event(const std::string& filename) {
     std::ifstream file(filename);
-    if (!file)
-    {
+    if (!file) {
         throw std::runtime_error(fmt::format(
-            "kc::Capture::Event::save(): "
+            "cp::Capture::Event::save(): "
             "Couldn't open file \"{}\"",
             filename
         ));
     }
 
-    try
-    {
+    try {
         const json eventJson = json::parse(file);
         m_name = eventJson.at(Objects::Name);
         m_shortName = eventJson.at(Objects::ShortName);
         m_timestamp = pt::from_iso_extended_string(eventJson.at(Objects::Timestamp));
     }
-    catch (const json::exception&)
-    {
+    catch (const json::exception&) {
         throw std::runtime_error(fmt::format(
-            "kc::Capture::Event::Event(): "
+            "cp::Capture::Event::Event(): "
             "Couldn't parse event file JSON"
         ));
     }
-    catch (const boost::exception&)
-    {
+    catch (const boost::exception&) {
         throw std::runtime_error(fmt::format(
-            "kc::Capture::Event::Event(): "
+            "cp::Capture::Event::Event(): "
             "Couldn't parse event file timestamp"
         ));
     }
@@ -124,10 +130,9 @@ Capture::Event::Event(const std::string& filename)
 void Capture::Event::save(const std::string& filename) const
 {
     std::ofstream file(filename);
-    if (!file)
-    {
+    if (!file) {
         throw std::runtime_error(fmt::format(
-            "kc::Capture::Event::save(): "
+            "cp::Capture::Event::save(): "
             "Couldn't create file \"{}\"",
             filename
         ));
@@ -140,22 +145,21 @@ void Capture::Event::save(const std::string& filename) const
     file << eventJson.dump(4) << '\n';
 }
 
-std::string Capture::Event::summary(int length) const
-{
+std::string Capture::Event::summary(int length) const {
     std::string result = fmt::format("[#{} {}]", m_id, m_name);
-    if (length <= 0)
+    if (length <= 0) {
         return result;
+    }
 
     int minLength = static_cast<int>(fmt::format("[#{} ]", m_id).length());
-    if (length <= minLength)
+    if (length <= minLength) {
         return Utility::Truncate(result, length);
+    }
 
     return fmt::format(
         "[#{} {:>{}}]",
-        m_id,
-        Utility::Truncate(m_name, length - minLength),
-        length - minLength
+        m_id, Utility::Truncate(m_name, length - minLength), length - minLength
     );
 }
 
-} // namespace kc
+} // namespace cp

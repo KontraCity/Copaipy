@@ -1,29 +1,14 @@
 #pragma once
 
-// STL modules
 #include <memory>
 #include <string>
-#include <fstream>
-#include <stdexcept>
 
-// Library nlohmann::json
-#include <nlohmann/json.hpp>
+namespace cp {
 
-// Library {fmt}
-#include <fmt/format.h>
-
-namespace kc {
-
-/* Namespace aliases and imports */
-using nlohmann::json;
-
-namespace ConfigConst
-{
-    // Copaipy configuration JSON file name
+namespace ConfigConst {
     constexpr const char* ConfigFile = "config.json";
 
-    namespace Objects
-    {
+    namespace Objects {
         constexpr const char* Common = "common";
         constexpr const char* HttpPort = "http_port";
         constexpr const char* TimeReserve = "time_reserve";
@@ -41,8 +26,7 @@ namespace ConfigConst
         constexpr const char* SunsetAngle = "sunset_angle";
     }
 
-    namespace Defaults
-    {
+    namespace Defaults {
         constexpr uint16_t HttpPort = 80;
         constexpr int TimeReserve = 5000;
 
@@ -57,15 +41,11 @@ namespace ConfigConst
     }
 }
 
-class Config
-{
+class Config {
 public:
-    // Singleton instance
     static const std::unique_ptr<Config> Instance;
 
 public:
-    /// @brief Generate sample configuration file for user to fill out
-    /// @throw std::runtime_error if file couldn't bee created
     static void GenerateSampleFile();
 
 private:
@@ -80,72 +60,44 @@ private:
     double m_sunsetAngle;
 
 private:
-    /// @brief Read and parse configuration file
     Config();
 
 public:
-    /// @brief Get configuration file read and parse error message
-    /// @return Configuration file read and parse error message (empty if no error)
-    inline const std::string& error() const
-    {
+    inline const std::string& error() const {
         return m_error;
     }
 
-    /// @brief Get HTTP server port
-    /// @return HTTP server port
-    inline uint16_t httpPort() const
-    {
+    inline uint16_t httpPort() const {
         return m_httpPort;
     }
 
-    /// @brief Get capture time reserve
-    /// @return Capture time reserve
-    inline int timeReserve() const
-    {
+    inline int timeReserve() const {
         return m_timeReserve;
     }
 
-    /// @brief Get external I2C port
-    /// @return External I2C port
-    inline const std::string& externalPort() const
-    {
+    inline const std::string& externalPort() const {
         return m_externalPort;
     }
 
-    /// @brief Get internal I2C port
-    /// @return Internal I2C port
-    inline const std::string& internalPort() const
-    {
+    inline const std::string& internalPort() const {
         return m_internalPort;
     }
 
-    /// @brief Get system location latitude
-    /// @return System location latitude
-    inline double latitude() const
-    {
+    inline double latitude() const {
         return m_latitude;
     }
 
-    /// @brief Get system location longitude
-    /// @return System location longitude
-    inline double longitude() const
-    {
+    inline double longitude() const {
         return m_longitude;
     }
 
-    /// @brief Get target sunrise angle
-    /// @return Target sunrise angle
-    inline double sunriseAngle() const
-    {
+    inline double sunriseAngle() const {
         return m_sunriseAngle;
     }
 
-    /// @brief Get target sunset angle
-    /// @return Target sunset angle
-    inline double sunsetAngle() const
-    {
+    inline double sunsetAngle() const {
         return m_sunsetAngle;
     }
 };
 
-} // namespace kc
+} // namespace cp

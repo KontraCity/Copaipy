@@ -1,83 +1,75 @@
 #include "sensors/sensors.hpp"
 
-namespace kc {
+#include <cmath>
 
-Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator-=(const Aht20Measurement& other)
-{
+#include "common/config.hpp"
+#include "common/i2c.hpp"
+#include "common/utility.hpp"
+
+namespace cp {
+
+Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator-=(const Aht20Measurement& other) {
     temperature -= other.temperature;
     humidity -= other.humidity;
     return *this;
 }
 
-Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator+=(const Aht20Measurement& other)
-{
+Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator+=(const Aht20Measurement& other) {
     temperature += other.temperature;
     humidity += other.humidity;
     return *this;
 }
 
-Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator/=(double number)
-{
+Sensors::Aht20Measurement& Sensors::Aht20Measurement::operator/=(double number) {
     temperature /= number;
     humidity /= number;
     return *this;
 }
 
-Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator-=(const Bmp280Measurement& other)
-{
+Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator-=(const Bmp280Measurement& other) {
     temperature -= other.temperature;
     pressure -= other.pressure;
     return *this;
 }
 
-Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator+=(const Bmp280Measurement& other)
-{
+Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator+=(const Bmp280Measurement& other) {
     temperature += other.temperature;
     pressure += other.pressure;
     return *this;
 }
 
-Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator/=(double number)
-{
+Sensors::Bmp280Measurement& Sensors::Bmp280Measurement::operator/=(double number) {
     temperature /= number;
     pressure /= number;
     return *this;
 }
 
-void Sensors::Measurement::round()
-{
+void Sensors::Measurement::round() {
     aht20.temperature = Utility::Round(aht20.temperature, Precision);
     aht20.humidity = Utility::Round(aht20.humidity, Precision);
     bmp280.temperature = Utility::Round(bmp280.temperature, Precision);
     bmp280.pressure = Utility::Round(bmp280.pressure, Precision);
 }
 
-Sensors::Measurement& Sensors::Measurement::operator-=(const Measurement& other)
-{
+Sensors::Measurement& Sensors::Measurement::operator-=(const Measurement& other) {
     aht20 -= other.aht20;
     bmp280 -= other.bmp280;
     return *this;
 }
 
-Sensors::Measurement& Sensors::Measurement::operator+=(const Measurement& other)
-{
+Sensors::Measurement& Sensors::Measurement::operator+=(const Measurement& other) {
     aht20 += other.aht20;
     bmp280 += other.bmp280;
     return *this;
 }
 
-Sensors::Measurement& Sensors::Measurement::operator/=(double number)
-{
+Sensors::Measurement& Sensors::Measurement::operator/=(double number) {
     aht20 /= number;
     bmp280 /= number;
     return *this;
 }
 
-/// @brief Perform AHT20 sensor measurement
-/// @param device I2C AHT20 device to measure
-/// @return AHT20 sensor measurement
-static Sensors::Aht20Measurement MeasureAht20(I2C::Device& device)
-{
+static Sensors::Aht20Measurement MeasureAht20(I2C::Device& device) {
     device.send({ 0xAC, 0x33, 0x00 });
     Utility::Sleep(0.08);
 
@@ -88,11 +80,7 @@ static Sensors::Aht20Measurement MeasureAht20(I2C::Device& device)
     };
 }
 
-/// @brief Perform BMP280 sensor measurement
-/// @param device I2C BMP280 device to measure
-/// @return BMP280 sensor measurement
-static Sensors::Bmp280Measurement MeasureBmp280(I2C::Device& device)
-{
+static Sensors::Bmp280Measurement MeasureBmp280(I2C::Device& device) {
     device.send({ 0xF4, 0b111'010'01 });
     Utility::Sleep(0.05);
 
@@ -131,16 +119,14 @@ static Sensors::Bmp280Measurement MeasureBmp280(I2C::Device& device)
     return { Utility::Round(fineTemperature / 5120.0, 2), Utility::Round(pressure / 100.0, 2) };
 }
 
-Sensors::Measurement Sensors::Measure(Location location, int iterations)
-{
+Sensors::Measurement Sensors::Measure(Location location, int iterations) {
 #ifdef __unix__
     static I2C::Device externalAht20(Config::Instance->externalPort(), 0x38);
     static I2C::Device externalBmp280(Config::Instance->externalPort(), 0x77);
     static I2C::Device internalAht20(Config::Instance->internalPort(), 0x38);
     static I2C::Device internalBmp280(Config::Instance->internalPort(), 0x77);
     static bool initialized = false;
-    if (!initialized)
-    {
+    if (!initialized) {
         // AHT20s initialization
         externalAht20.send({ 0xBE, 0x08, 0x00 });
         internalAht20.send({ 0xBE, 0x08, 0x00 });
@@ -154,16 +140,18 @@ Sensors::Measurement Sensors::Measure(Location location, int iterations)
         initialized = true;
     }
 
-    if (iterations < 1)
+    if (iterations < 1) {
         iterations = 1;
+    }
 
     Measurement measurement = {};
-    for (int iteration = 0; iteration < iterations; ++iteration)
-    {
-        if (location == Location::Internal)
+    for (int iteration = 0; iteration < iterations; ++iteration) {
+        if (location == Location::Internal) {
             measurement += { MeasureAht20(internalAht20), MeasureBmp280(internalBmp280) };
-        else
+        }
+        else {
             measurement += { MeasureAht20(externalAht20), MeasureBmp280(externalBmp280) };
+        }
     }
 
     measurement /= iterations;
@@ -174,4 +162,4 @@ Sensors::Measurement Sensors::Measure(Location location, int iterations)
 #endif
 }
 
-} // namespace kc
+} // namespace cp

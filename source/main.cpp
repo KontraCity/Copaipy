@@ -1,17 +1,13 @@
-// STL modules
 #include <filesystem>
 
-// Custom modules
 #include "capture/master.hpp"
 #include "common/utility.hpp"
 #include "common/config.hpp"
 #include "common/http_server.hpp"
-using namespace kc;
+using namespace cp;
 
-struct ParseResult
-{
-    enum class Result
-    {
+struct ParseResult {
+    enum class Result {
         None,       // Parsing error occured
         ShowHelp,   // Help message was requested
         Generate,   // Necessary files generation was requested
@@ -23,41 +19,31 @@ struct ParseResult
     bool forceColor;
 };
 
-/// @brief Parse commmandline arguments
-/// @param argc Count of arguments
-/// @param argv Values of arguments
-/// @return Parse result
-static ParseResult ParseOptions(int argc, char** argv)
-{
+static ParseResult ParseOptions(int argc, char** argv) {
     ParseResult result;
     result.executableName = argv[0];
     result.result = ParseResult::Result::Start;
     result.forceColor = false;
 
-    for (int index = 1; index < argc; ++index)
-    {
+    for (int index = 1; index < argc; ++index) {
         std::string option = argv[index];
 
-        if (option == "-fc" || option == "--force-color")
-        {
+        if (option == "-fc" || option == "--force-color") {
             result.forceColor = true;
             continue;
         }
 
-        if (result.result != ParseResult::Result::Start)
-        {
+        if (result.result != ParseResult::Result::Start) {
             fmt::print("Ignoring option: \"{}\"\n", option);
             continue;
         }
 
-        if (option == "-h" || option == "--help")
-        {
+        if (option == "-h" || option == "--help") {
             result.result = ParseResult::Result::ShowHelp;
             continue;
         }
 
-        if (option == "-g" || option == "--generate")
-        {
+        if (option == "-g" || option == "--generate") {
             result.result = ParseResult::Result::Generate;
             continue;
         }
@@ -76,10 +62,7 @@ static ParseResult ParseOptions(int argc, char** argv)
     return result;
 }
 
-/// @brief Show help message
-/// @param result Commandline arguments parse result
-static int ShowHelpMessage(const ParseResult& result)
-{
+static int ShowHelpMessage(const ParseResult& result) {
     fmt::print(
         "Copaipy usage: {} [OPTIONS]\n"
         "Available options:\n"
@@ -94,12 +77,8 @@ static int ShowHelpMessage(const ParseResult& result)
     return 0;
 }
 
-/// @brief Generate necessary files
-/// @return Executable exit code
-static int GenerateFiles()
-{
-    if (std::filesystem::is_regular_file(ConfigConst::ConfigFile))
-    {
+static int GenerateFiles() {
+    if (std::filesystem::is_regular_file(ConfigConst::ConfigFile)) {
         fmt::print(
             "Configuration file \"{}\" already exists.\n"
             "Delete it first to confirm that you don't care about its contents.\n",
@@ -108,12 +87,10 @@ static int GenerateFiles()
         return 1;
     }
 
-    try
-    {
+    try {
         Config::GenerateSampleFile();
     }
-    catch (...)
-    {
+    catch (...) {
         fmt::print(
             "Couldn't create configuration file \"{}\".\n"
             "Please check permissions.\n",
@@ -130,10 +107,7 @@ static int GenerateFiles()
     return 0;
 }
 
-/// @brief Check config initialization
-/// @return True if config initialized successfully
-static bool CheckConfig(const ParseResult& result)
-{
+static bool CheckConfig(const ParseResult& result) {
     spdlog::logger logger = Utility::CreateLogger("init", result.forceColor);
     if (Config::Instance->error().empty())
         return true;
@@ -144,11 +118,9 @@ static bool CheckConfig(const ParseResult& result)
     return false;
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     ParseResult result = ParseOptions(argc, argv);
-    switch (result.result)
-    {
+    switch (result.result) {
         case ParseResult::Result::None:
             return 1;
         case ParseResult::Result::ShowHelp:
@@ -160,8 +132,9 @@ int main(int argc, char** argv)
     }
 
     bool configCheck = CheckConfig(result);
-    if (!configCheck)
+    if (!configCheck) {
         return 1;
+    }
 
     fmt::print(
         "Welcome to Copaipy\n"
@@ -169,19 +142,17 @@ int main(int argc, char** argv)
     );
 
     spdlog::logger logger = Utility::CreateLogger("main");
-    try
-    {
+    try {
         Display::Ui::Pointer displayUi = std::make_shared<Display::Ui>();
         displayUi->enable();
 
         Capture::Master::Pointer captureMaster = std::make_shared<Capture::Master>(displayUi);
-        captureMaster->start();
+        captureMaster->enable();
 
         HttpServer httpServer(displayUi, captureMaster);
         httpServer.start();
     }
-    catch (const std::exception& error)
-    {
+    catch (const std::exception& error) {
         logger.critical("Exception: \"{}\"", error.what());
         logger.critical("Copaipy is terminating");
         return -1;
